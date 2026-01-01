@@ -18,6 +18,8 @@
 <div id="chart-container">
     <canvas id="performanceChart"></canvas>
 </div>
+<label for="bankrollInput"><b>Bankroll originelle (€):</b></label>
+<input type="number" id="bankrollInput" value="100" min="1" step="any" style="margin:0 1em 1em 1em;width:120px;">
 <h2>Historique des paris</h2>
 <table id="betsTable">
     <thead>
@@ -43,32 +45,69 @@
                     const data = rows.filter(r => r.length >= header.length && r[0]);
                     let perfData = [], labels = [];
                     const tbody = document.querySelector('#betsTable tbody');
-                    data.forEach(row => {
-                        labels.push(labels.length+1);
-                        // Bankroll juste après le paris placé = colonne 10 (index 10)
-                        let bankroll = row[10] || "0";
-                        perfData.push(parseFloat(bankroll.replace(',','.')) || 0);
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = row.slice(0,16).map(v => `<td>${v}</td>`).join('');
-                        tbody.appendChild(tr);
-                    });
-                    new Chart(document.getElementById('performanceChart'), {
-                        type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Bénéfice cumulé (€)',
-                                data: perfData,
-                                borderColor: 'green',
-                                fill: false
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: { legend: { display: true } },
-                            scales: { y: { beginAtZero: true } }
-                        }
-                    });
+                    function updateTableWithBankroll(mult) {
+    tbody.innerHTML = '';
+    data.forEach(row => {
+        labels.push(labels.length+1);
+        // Colonnes à ajuster : 7 (mise €), 8 (mise idéale), 10 (bankroll), 11 (gains), 12-15 (solde par bookmaker)
+        let newRow = row.slice(0, 16);
+        // Mise (argent réel)
+        if(newRow[7]) newRow[7] = (parseFloat(newRow[7].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
+        // Mise idéale théorique
+        if(newRow[8]) newRow[8] = (parseFloat(newRow[8].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
+        // Bankroll juste après le pari placé
+        if(newRow[10]) newRow[10] = (parseFloat(newRow[10].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
+        // Gains
+        if(newRow[11]) newRow[11] = (parseFloat(newRow[11].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
+        // Parions Sport, Unibet, Betclic, Winamax
+        for(let i=12;i<=15;i++) if(newRow[i]) newRow[i] = (parseFloat(newRow[i].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
+        const tr = document.createElement('tr');
+        tr.innerHTML = newRow.map(v => `<td>${v}</td>`).join('');
+        tbody.appendChild(tr);
+    });
+}
+let baseBankroll = 100;
+document.getElementById('bankrollInput').addEventListener('input', function() {
+    let val = parseFloat(this.value.replace(',','.'));
+    if(val > 0) {
+        let mult = val/baseBankroll;
+        updateTableWithBankroll(mult);
+    }
+});
+// Initial rendering
+let mult = parseFloat(document.getElementById('bankrollInput').value)/baseBankroll;
+updateTableWithBankroll(mult);
+                    let chart;
+function updateChartWithBankroll(mult) {
+    const scaledData = perfData.map(v => v * mult);
+    chart.data.datasets[0].data = scaledData;
+    chart.update();
+}
+chart = new Chart(document.getElementById('performanceChart'), {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Bénéfice cumulé (€)',
+            data: perfData,
+            borderColor: 'green',
+            fill: false
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: true } },
+        scales: { y: { beginAtZero: true } }
+    }
+});
+document.getElementById('bankrollInput').addEventListener('input', function() {
+    let val = parseFloat(this.value.replace(',','.'));
+    if(val > 0) {
+        let mult = val/baseBankroll;
+        updateChartWithBankroll(mult);
+    }
+});
+updateChartWithBankroll(mult);
                 }
             });
         });
