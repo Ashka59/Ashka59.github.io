@@ -73,17 +73,7 @@
     updateChartWithBankroll(bankrolls);
 }
 let baseBankroll = 100;
-document.getElementById('bankrollInput').addEventListener('input', function() {
-    let val = parseFloat(this.value.replace(',','.'));
-    if(val > 0) {
-        let mult = val/baseBankroll;
-        updateTableWithBankroll(mult);
-    }
-});
-// Initial rendering
-let mult = parseFloat(document.getElementById('bankrollInput').value)/baseBankroll;
-updateTableWithBankroll(mult);
-                    let chart;
+let chart;
 function updateChartWithBankroll(bankrolls) {
     chart.data.labels = bankrolls.map((_, i) => i + 1);
     chart.data.datasets[0].data = bankrolls;
@@ -92,10 +82,10 @@ function updateChartWithBankroll(bankrolls) {
 chart = new Chart(document.getElementById('performanceChart'), {
     type: 'line',
     data: {
-        labels: labels,
+        labels: [],
         datasets: [{
             label: 'Bénéfice cumulé (€)',
-            data: perfData,
+            data: [],
             borderColor: 'green',
             fill: false
         }]
@@ -110,9 +100,13 @@ document.getElementById('bankrollInput').addEventListener('input', function() {
     let val = parseFloat(this.value.replace(',','.'));
     if(val > 0) {
         let mult = val/baseBankroll;
-        updateChartWithBankroll(mult);
+        updateTableWithBankroll(mult);
     }
 });
+// Initial rendering
+let mult = parseFloat(document.getElementById('bankrollInput').value)/baseBankroll;
+updateTableWithBankroll(mult);
+
 updateChartWithBankroll(mult);
                 }
             });
