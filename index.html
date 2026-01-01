@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <title>Suivi des paris</title>
@@ -8,18 +8,29 @@
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
     <style>
+        /* ========= THEME ========= */
         :root {
             --bg: #f5f6f8;
             --card: #ffffff;
-            --text: #111;
+            --text: #111111;
             --muted: #6b7280;
             --accent: #16a34a;
             --border: #e5e7eb;
+            --grid: #eeeeee;
         }
 
-        * {
-            box-sizing: border-box;
+        [data-theme="dark"] {
+            --bg: #0b0c0f;
+            --card: #14161b;
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --accent: #22c55e;
+            --border: #262a32;
+            --grid: #1f232b;
         }
+
+        /* ========= BASE ========= */
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
@@ -35,11 +46,12 @@
         }
 
         h1 {
-            font-size: 1.8rem;
+            font-size: 1.7rem;
             font-weight: 600;
             margin-bottom: 1rem;
         }
 
+        /* ========= CARDS ========= */
         .card {
             background: var(--card);
             border-radius: 16px;
@@ -48,31 +60,60 @@
             margin-bottom: 1.5rem;
         }
 
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
         label {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--muted);
         }
 
         input[type="number"] {
-            margin-top: 0.3rem;
-            padding: 0.5rem 0.75rem;
+            padding: 0.45rem 0.7rem;
             font-size: 1rem;
             border-radius: 10px;
             border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
             width: 140px;
         }
 
-        #perfStats {
-            margin-top: 1rem;
-            font-size: 0.95rem;
-            line-height: 1.5;
+        /* ========= TOGGLE ========= */
+        .toggle {
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--muted);
         }
 
+        /* ========= STATS ========= */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat {
+            font-size: 0.9rem;
+        }
+
+        .stat b {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        /* ========= CHART ========= */
         .chart-wrapper {
             height: 280px;
         }
 
-        /* TABLE */
+        /* ========= TABLE ========= */
         .table-wrapper {
             overflow-x: auto;
         }
@@ -84,34 +125,26 @@
             min-width: 900px;
         }
 
+        th, td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
         th {
             text-align: left;
             font-weight: 500;
             color: var(--muted);
-            padding: 0.75rem;
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
-        }
-
-        td {
-            padding: 0.75rem;
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
         }
 
         tr:hover {
-            background: #fafafa;
+            background: rgba(255,255,255,0.03);
         }
 
-        /* MOBILE */
+        /* ========= MOBILE ========= */
         @media (max-width: 768px) {
-            h1 {
-                font-size: 1.4rem;
-            }
-
-            .chart-wrapper {
-                height: 220px;
-            }
+            h1 { font-size: 1.4rem; }
+            .chart-wrapper { height: 220px; }
         }
     </style>
 </head>
@@ -122,10 +155,15 @@
     <h1>Suivi de mes paris</h1>
 
     <div class="card">
-        <label>Bankroll initiale (€)</label><br>
-        <input type="number" id="bankrollInput" value="100" min="1" step="any">
+        <div class="row">
+            <div>
+                <label>Bankroll initiale (€)</label><br>
+                <input type="number" id="bankrollInput" value="100" min="1" step="any">
+            </div>
+            <div class="toggle" id="themeToggle">🌙 Dark mode</div>
+        </div>
 
-        <div id="perfStats"></div>
+        <div class="stats" id="perfStats"></div>
     </div>
 
     <div class="card">
@@ -145,7 +183,7 @@
                     <th>Événement</th>
                     <th>Résultat</th>
                     <th>Cote</th>
-                    <th>Mise €</th>
+                    <th>Mise</th>
                     <th>Gains</th>
                     <th>Bankroll</th>
                 </tr>
@@ -160,8 +198,13 @@
 <script>
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv&gid=786289597';
     const baseBankroll = 100;
+    let chart, dataRows = [];
 
-    let chart;
+    const parseDate = s => {
+        const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
+        if (!m) return null;
+        return new Date(m[3], m[2]-1, m[1], m[4]||0, m[5]||0);
+    };
 
     fetch(sheetUrl)
         .then(r => r.text())
@@ -169,91 +212,126 @@
             Papa.parse(csv, {
                 skipEmptyLines: true,
                 complete: res => {
-                    const rows = res.data.slice(6);
-                    const tbody = document.querySelector("#betsTable tbody");
-
-                    function render(mult) {
-                        tbody.innerHTML = "";
-                        let bankrolls = [];
-
-                        rows.forEach(r => {
-                            if (!r[0]) return;
-
-                            let bankroll = r[10] ? parseFloat(r[10].replace(',','.')) * mult : 0;
-                            bankrolls.push(bankroll);
-
-                            const tr = document.createElement("tr");
-                            tr.innerHTML = `
-                        <td>${r[0]}</td>
-                        <td>${r[1]}</td>
-                        <td>${r[3]}</td>
-                        <td>${r[4]}</td>
-                        <td>${r[5]}</td>
-                        <td>${r[7]}</td>
-                        <td>${r[11]}</td>
-                        <td>${bankroll.toFixed(2)}€</td>
-                    `;
-                            tbody.appendChild(tr);
-                        });
-
-                        updateChart(bankrolls);
-                        updateStats(bankrolls, mult);
-                    }
-
-                    function updateChart(data) {
-                        chart.data.labels = data.map((_,i)=>i+1);
-                        chart.data.datasets[0].data = data;
-                        chart.update();
-                    }
-
-                    function updateStats(data, mult) {
-                        const start = baseBankroll * mult;
-                        const end = data[data.length-1] || start;
-                        const perf = end - start;
-                        const pct = ((end/start - 1)*100).toFixed(2);
-
-                        perfStats.innerHTML = `
-                    <b>Performance :</b>
-                    <span style="color:${perf>=0?'var(--accent)':'red'}">
-                        ${perf.toFixed(2)}€ (${pct}%)
-                    </span>
-                `;
-                    }
-
-                    chart = new Chart(document.getElementById("performanceChart"), {
-                        type: "line",
-                        data: {
-                            labels: [],
-                            datasets: [{
-                                data: [],
-                                borderColor: "rgba(22,163,74,1)",
-                                borderWidth: 2,
-                                tension: 0.35,
-                                pointRadius: 0
-                            }]
-                        },
-                        options: {
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: false }
-                            },
-                            scales: {
-                                x: { display: false },
-                                y: {
-                                    grid: { color: "#eee" },
-                                    ticks: { color: "#6b7280" }
-                                }
-                            }
-                        }
-                    });
-
-                    const input = document.getElementById("bankrollInput");
-                    const update = () => render(input.value / baseBankroll);
-                    input.addEventListener("input", update);
-                    update();
+                    dataRows = res.data.slice(6).filter(r => r[0]);
+                    init();
                 }
             });
         });
+
+    function init() {
+        chart = new Chart(performanceChart, {
+            type: "line",
+            data: { labels: [], datasets: [{
+                    data: [],
+                    borderWidth: 2,
+                    tension: 0.35,
+                    pointRadius: 0
+                }]},
+            options: chartOptions()
+        });
+
+        bankrollInput.addEventListener("input", update);
+        update();
+    }
+
+    function update() {
+        const mult = bankrollInput.value / baseBankroll;
+        renderTable(mult);
+        renderStats(mult);
+    }
+
+    function renderTable(mult) {
+        betsTable.querySelector("tbody").innerHTML = "";
+        let bankrolls = [];
+
+        dataRows.forEach(r => {
+            const bankroll = r[10] ? parseFloat(r[10].replace(',','.')) * mult : 0;
+            bankrolls.push(bankroll);
+
+            betsTable.querySelector("tbody").insertAdjacentHTML("beforeend", `
+            <tr>
+                <td>${r[0]}</td>
+                <td>${r[1]}</td>
+                <td>${r[3]}</td>
+                <td>${r[4]}</td>
+                <td>${r[5]}</td>
+                <td>${r[7]}</td>
+                <td>${r[11]}</td>
+                <td>${bankroll.toFixed(2)}€</td>
+            </tr>
+        `);
+        });
+
+        chart.data.labels = bankrolls.map((_,i)=>i+1);
+        chart.data.datasets[0].data = bankrolls;
+        chart.update();
+    }
+
+    function renderStats(mult) {
+        const first = parseDate(dataRows[0][1]);
+        const last = parseDate(dataRows[dataRows.length-1][1]);
+        const start = baseBankroll * mult;
+        const end = parseFloat(dataRows[dataRows.length-1][10].replace(',','.')) * mult;
+
+        const perf = end - start;
+        const pct = (end/start - 1) * 100;
+
+        const days = (last-first)/86400000;
+        const months = days / 30.4375;
+        const years = days / 365.25;
+
+        const ann = (Math.pow(end/start, 1/years)-1)*100;
+        const mon = (Math.pow(end/start, 1/months)-1)*100;
+
+        perfStats.innerHTML = `
+        <div class="stat">
+            <b>Performance</b>
+            <span style="color:${perf>=0?'var(--accent)':'red'}">
+                ${perf.toFixed(2)}€ (${pct.toFixed(2)}%)
+            </span>
+        </div>
+        <div class="stat">
+            <b>Annualisée</b>
+            ${isFinite(ann)?ann.toFixed(2):'—'} %
+        </div>
+        <div class="stat">
+            <b>Mensuelle</b>
+            ${isFinite(mon)?mon.toFixed(2):'—'} %
+        </div>
+        <div class="stat">
+            <b>Durée</b>
+            ${days.toFixed(0)} jours
+        </div>
+    `;
+    }
+
+    /* ========= THEME ========= */
+    themeToggle.onclick = () => {
+        const root = document.documentElement;
+        const dark = root.dataset.theme === "dark";
+        root.dataset.theme = dark ? "light" : "dark";
+        themeToggle.textContent = dark ? "🌙 Dark mode" : "☀️ Light mode";
+        chart.options = chartOptions();
+        chart.update();
+    };
+
+    function chartOptions() {
+        const s = getComputedStyle(document.documentElement);
+        return {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false },
+                y: {
+                    grid: { color: s.getPropertyValue('--grid') },
+                    ticks: { color: s.getPropertyValue('--muted') }
+                }
+            },
+            elements: {
+                line: { borderColor: s.getPropertyValue('--accent') }
+            }
+        };
+    }
 </script>
 
 </body>
