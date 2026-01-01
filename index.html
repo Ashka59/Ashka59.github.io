@@ -1,70 +1,75 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Suivi de mes paris sportifs</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 2em; }
-    #chart-container { width: 80vw; max-width: 900px; margin: auto; }
-    table { border-collapse: collapse; width: 100%; margin-top: 2em; }
-    th, td { border: 1px solid #ccc; padding: 0.5em; text-align: center; }
-    th { background: #f0f0f0; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Suivi de mes paris sportifs</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        #chart-container { width: 80vw; max-width: 900px; margin: auto; }
+        table { border-collapse: collapse; width: 100%; margin-top: 2em; }
+        th, td { border: 1px solid #ccc; padding: 0.5em; text-align: center; }
+        th { background: #f0f0f0; }
+    </style>
 </head>
 <body>
-  <h1>Suivi de mes paris sportifs</h1>
-  <div id="chart-container">
+<h1>Suivi de mes paris sportifs</h1>
+<div id="chart-container">
     <canvas id="performanceChart"></canvas>
-  </div>
-  <h2>Historique des paris</h2>
-  <table id="betsTable">
+</div>
+<h2>Historique des paris</h2>
+<table id="betsTable">
     <thead>
-      <tr><th>Bookmaker</th><th>Date prise de paris</th><th>Date de l'évènement</th><th>Evenement</th><th>Résultat</th><th>Cote</th><th>Mise %</th><th>Mise (argent réél)</th><th>Mise idéale thérique</th><th>Gagné ?</th><th>Bankroll juste après le paris placé</th><th>Gains</th><th>Parions Sport</th><th>Unibet</th><th>Betclic</th><th>Winamax</th></tr>
+    <tr><th>Bookmaker</th><th>Date prise de paris</th><th>Date de l'évènement</th><th>Evenement</th><th>Résultat</th><th>Cote</th><th>Mise %</th><th>Mise (argent réél)</th><th>Mise idéale thérique</th><th>Gagné ?</th><th>Bankroll juste après le paris placé</th><th>Gains</th><th>Parions Sport</th><th>Unibet</th><th>Betclic</th><th>Winamax</th></tr>
     </thead>
     <tbody></tbody>
-  </table>
-  <script>
+</table>
+<script>
     // Remplace l'URL ci-dessous par celle de ton Google Sheet publié en CSV
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv&gid=786289597';
 
     fetch(sheetUrl)
-      .then(r => r.text())
-      .then(csv => {
-        const rows = csv.split('\n').map(l => l.split(','));
-        const header = rows[5]; // Ligne 6 = index 5
-        rows.splice(0,6); // Enlève les 6 premières lignes, ne garde que les données
-        // Affiche toutes les colonnes du header
-        const data = rows.filter(r => r.length >= header.length && r[0]);
-        let perfData = [], labels = [];
-        const tbody = document.querySelector('#betsTable tbody');
-        data.forEach(row => {
-          labels.push(labels.length+1);
-          // Bankroll juste après le paris placé = colonne 10 (index 10)
-          let bankroll = row[10] || "0";
-          perfData.push(parseFloat(bankroll.replace(',','.')) || 0);
-          const tr = document.createElement('tr');
-          tr.innerHTML = row.slice(0,16).map(v => `<td>${v}</td>`).join('');
-          tbody.appendChild(tr);
+        .then(r => r.text())
+        .then(csv => {
+            // Utilise PapaParse pour gérer correctement les virgules décimales et les guillemets
+            Papa.parse(csv, {
+                header: false,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const rows = results.data;
+                    const header = rows[5]; // Ligne 6 = index 5
+                    rows.splice(0,6); // Enlève les 6 premières lignes, ne garde que les données
+                    const data = rows.filter(r => r.length >= header.length && r[0]);
+                    let perfData = [], labels = [];
+                    const tbody = document.querySelector('#betsTable tbody');
+            data.forEach(row => {
+                labels.push(labels.length+1);
+                // Bankroll juste après le paris placé = colonne 10 (index 10)
+                let bankroll = row[10] || "0";
+                perfData.push(parseFloat(bankroll.replace(',','.')) || 0);
+                const tr = document.createElement('tr');
+                tr.innerHTML = row.slice(0,16).map(v => `<td>${v}</td>`).join('');
+                tbody.appendChild(tr);
+            });
+            new Chart(document.getElementById('performanceChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Bénéfice cumulé (€)',
+                        data: perfData,
+                        borderColor: 'green',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: true } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
         });
-        new Chart(document.getElementById('performanceChart'), {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: 'Bénéfice cumulé (€)',
-              data: perfData,
-              borderColor: 'green',
-              fill: false
-            }]
-          },
-          options: {
-            responsive: true,
-            plugins: { legend: { display: true } },
-            scales: { y: { beginAtZero: true } }
-          }
-        });
-      });
-  </script>
+</script>
 </body>
 </html>
