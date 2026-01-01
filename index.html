@@ -26,13 +26,14 @@
   </table>
   <script>
     // Remplace l'URL ci-dessous par celle de ton Google Sheet publié en CSV
-    const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv';
+    const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv&gid=786289597';
 
     fetch(sheetUrl)
       .then(r => r.text())
       .then(csv => {
         const rows = csv.split('\n').map(l => l.split(','));
-        const header = rows[0];
+        const header = rows[5]; // Ligne 6 = index 5
+        rows.splice(0,6); // Enlève les 6 premières lignes, ne garde que les données
         // Trouver les index des colonnes demandées
         const idxMise = header.findIndex(h => h.toLowerCase().includes('mise idéale'));
         const idxGagne = header.findIndex(h => h.toLowerCase().includes('gagné'));
