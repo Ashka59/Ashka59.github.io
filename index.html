@@ -15,6 +15,9 @@
 </head>
 <body>
 <h1>Suivi de mes paris sportifs</h1>
+<label for="bankrollInput">Bankroll d'origine (€):</label>
+<input type="number" id="bankrollInput" value="100" min="0" step="0.01" style="margin-bottom:1em;">
+<button id="updateBankroll">Mettre à jour</button>
 <div id="chart-container">
     <canvas id="performanceChart"></canvas>
 </div>
@@ -43,32 +46,43 @@
                     const data = rows.filter(r => r.length >= header.length && r[0]);
                     let perfData = [], labels = [];
                     const tbody = document.querySelector('#betsTable tbody');
-            data.forEach(row => {
-                labels.push(labels.length+1);
-                // Bankroll juste après le paris placé = colonne 10 (index 10)
-                let bankroll = row[10] || "0";
-                perfData.push(parseFloat(bankroll.replace(',','.')) || 0);
-                const tr = document.createElement('tr');
-                tr.innerHTML = row.slice(0,16).map(v => `<td>${v}</td>`).join('');
-                tbody.appendChild(tr);
-            });
-            new Chart(document.getElementById('performanceChart'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Bénéfice cumulé (€)',
-                        data: perfData,
-                        borderColor: 'green',
-                        fill: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: true } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
+            function updateDisplay(bankrollOrigin) {
+    tbody.innerHTML = '';
+    let currentBankroll = parseFloat(bankrollOrigin);
+    labels = [];
+    perfData = [];
+    data.forEach(row => {
+        labels.push(labels.length+1);
+        let gain = parseFloat((row[11]||'0').replace(',','.')) || 0;
+        currentBankroll += gain;
+        perfData.push(currentBankroll);
+        const tr = document.createElement('tr');
+        tr.innerHTML = row.slice(0,16).map(v => `<td>${v}</td>`).join('');
+        tbody.appendChild(tr);
+    });
+    if(window.chartInstance) window.chartInstance.destroy();
+    window.chartInstance = new Chart(document.getElementById('performanceChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Bénéfice cumulé (€)',
+                data: perfData,
+                borderColor: 'green',
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: true } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+}
+updateDisplay(document.getElementById('bankrollInput').value);
+document.getElementById('updateBankroll').onclick = function() {
+    updateDisplay(document.getElementById('bankrollInput').value);
+};
             }
         });
     });
