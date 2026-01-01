@@ -47,8 +47,8 @@
                     const tbody = document.querySelector('#betsTable tbody');
                     function updateTableWithBankroll(mult) {
     tbody.innerHTML = '';
-    data.forEach(row => {
-        labels.push(labels.length+1);
+    let bankrolls = [];
+    data.forEach((row, idx) => {
         // Colonnes à ajuster : 7 (mise €), 8 (mise idéale), 10 (bankroll), 11 (gains), 12-15 (solde par bookmaker)
         let newRow = row.slice(0, 16);
         // Mise (argent réel)
@@ -56,7 +56,12 @@
         // Mise idéale théorique
         if(newRow[8]) newRow[8] = (parseFloat(newRow[8].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
         // Bankroll juste après le pari placé
-        if(newRow[10]) newRow[10] = (parseFloat(newRow[10].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
+        let bankrollVal = 0;
+        if(newRow[10]) {
+            bankrollVal = parseFloat(row[10].replace(',','.')) * mult;
+            newRow[10] = bankrollVal.toFixed(2).replace('.',',') + '€';
+        }
+        bankrolls.push(bankrollVal);
         // Gains
         if(newRow[11]) newRow[11] = (parseFloat(newRow[11].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
         // Parions Sport, Unibet, Betclic, Winamax
@@ -65,6 +70,7 @@
         tr.innerHTML = newRow.map(v => `<td>${v}</td>`).join('');
         tbody.appendChild(tr);
     });
+    updateChartWithBankroll(bankrolls);
 }
 let baseBankroll = 100;
 document.getElementById('bankrollInput').addEventListener('input', function() {
@@ -78,9 +84,9 @@ document.getElementById('bankrollInput').addEventListener('input', function() {
 let mult = parseFloat(document.getElementById('bankrollInput').value)/baseBankroll;
 updateTableWithBankroll(mult);
                     let chart;
-function updateChartWithBankroll(mult) {
-    const scaledData = perfData.map(v => v * mult);
-    chart.data.datasets[0].data = scaledData;
+function updateChartWithBankroll(bankrolls) {
+    chart.data.labels = bankrolls.map((_, i) => i + 1);
+    chart.data.datasets[0].data = bankrolls;
     chart.update();
 }
 chart = new Chart(document.getElementById('performanceChart'), {
