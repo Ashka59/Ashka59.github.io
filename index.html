@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Suivi de mes paris sportifs</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    #chart-container { width: 80vw; max-width: 900px; margin: auto; }
+    table { border-collapse: collapse; width: 100%; margin-top: 2em; }
+    th, td { border: 1px solid #ccc; padding: 0.5em; text-align: center; }
+    th { background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>Suivi de mes paris sportifs</h1>
+  <div id="chart-container">
+    <canvas id="performanceChart"></canvas>
+  </div>
+  <h2>Historique des paris</h2>
+  <table id="betsTable">
+    <thead>
+      <tr><th>Mise idéale théorique</th><th>Gagné ?</th><th>Bankroll après pari</th><th>Gains</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script>
+    // Remplace l'URL ci-dessous par celle de ton Google Sheet publié en CSV
+    const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv';
+
+    fetch(sheetUrl)
+      .then(r => r.text())
+      .then(csv => {
+        const rows = csv.split('\n').map(l => l.split(','));
+        const header = rows[0];
+        // Trouver les index des colonnes demandées
+        const idxMise = header.findIndex(h => h.toLowerCase().includes('mise idéale'));
+        const idxGagne = header.findIndex(h => h.toLowerCase().includes('gagné'));
+        const idxBankroll = header.findIndex(h => h.toLowerCase().includes('bankroll juste après'));
+        const idxGains = header.findIndex(h => h.toLowerCase().includes('gains'));
+        const data = rows.slice(1).filter(r => r.length > Math.max(idxMise, idxGagne, idxBankroll, idxGains));
+        let perfData = [], labels = [];
+        const tbody = document.querySelector('#betsTable tbody');
+        data.forEach(row => {
+          const mise = row[idxMise];
+          const gagne = row[idxGagne];
+          const bankroll = row[idxBankroll];
+          const gains = row[idxGains];
+          labels.push(labels.length+1);
+          perfData.push(parseFloat(bankroll.replace(',','.')) || 0);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${mise}</td><td>${gagne}</td><td>${bankroll}</td><td>${gains}</td>`;
+          tbody.appendChild(tr);
+        });
+        new Chart(document.getElementById('performanceChart'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Bénéfice cumulé (€)',
+              data: perfData,
+              borderColor: 'green',
+              fill: false
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: true } },
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+      });
+  </script>
+</body>
+</html>
