@@ -2,161 +2,259 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Suivi de mes paris sportifs</title>
+    <title>Suivi des paris</title>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
     <style>
-        body { font-family: Arial, sans-serif; margin: 2em; }
-        #chart-container { width: 80vw; max-width: 900px; margin: auto; }
-        table { border-collapse: collapse; width: 100%; margin-top: 2em; }
-        th, td { border: 1px solid #ccc; padding: 0.5em; text-align: center; }
-        th { background: #f0f0f0; }
+        :root {
+            --bg: #f5f6f8;
+            --card: #ffffff;
+            --text: #111;
+            --muted: #6b7280;
+            --accent: #16a34a;
+            --border: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 1.5rem;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 1.25rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        input[type="number"] {
+            margin-top: 0.3rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            width: 140px;
+        }
+
+        #perfStats {
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .chart-wrapper {
+            height: 280px;
+        }
+
+        /* TABLE */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            min-width: 900px;
+        }
+
+        th {
+            text-align: left;
+            font-weight: 500;
+            color: var(--muted);
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        /* MOBILE */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.4rem;
+            }
+
+            .chart-wrapper {
+                height: 220px;
+            }
+        }
     </style>
 </head>
+
 <body>
-<h1>Suivi de mes paris sportifs</h1>
-<div id="chart-container">
-    <canvas id="performanceChart"></canvas>
+<div class="container">
+
+    <h1>Suivi de mes paris</h1>
+
+    <div class="card">
+        <label>Bankroll initiale (€)</label><br>
+        <input type="number" id="bankrollInput" value="100" min="1" step="any">
+
+        <div id="perfStats"></div>
+    </div>
+
+    <div class="card">
+        <div class="chart-wrapper">
+            <canvas id="performanceChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0;font-size:1.1rem;">Historique</h2>
+        <div class="table-wrapper">
+            <table id="betsTable">
+                <thead>
+                <tr>
+                    <th>Bookmaker</th>
+                    <th>Date</th>
+                    <th>Événement</th>
+                    <th>Résultat</th>
+                    <th>Cote</th>
+                    <th>Mise €</th>
+                    <th>Gains</th>
+                    <th>Bankroll</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
-<label for="bankrollInput"><b>Bankroll originelle (€):</b></label>
-<input type="number" id="bankrollInput" value="100" min="1" step="any" style="margin:0 1em 1em 1em;width:120px;">
-<div id="perfStats" style="margin:1em 0 2em 0; font-size:1.1em; background:#f8f8f8; padding:1em; border-radius:8px; max-width:600px;"></div>
-<h2>Historique des paris</h2>
-<table id="betsTable">
-    <thead>
-    <tr><th>Bookmaker</th><th>Date prise de paris</th><th>Date de l'évènement</th><th>Evenement</th><th>Résultat</th><th>Cote</th><th>Mise %</th><th>Mise (argent réél)</th><th>Mise idéale thérique</th><th>Gagné ?</th><th>Bankroll juste après le paris placé</th><th>Gains</th><th>Parions Sport</th><th>Unibet</th><th>Betclic</th><th>Winamax</th></tr>
-    </thead>
-    <tbody></tbody>
-</table>
+
 <script>
-    // Remplace l'URL ci-dessous par celle de ton Google Sheet publié en CSV
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv&gid=786289597';
+    const baseBankroll = 100;
+
+    let chart;
 
     fetch(sheetUrl)
         .then(r => r.text())
         .then(csv => {
-            // Utilise PapaParse pour gérer correctement les virgules décimales et les guillemets
             Papa.parse(csv, {
-                header: false,
                 skipEmptyLines: true,
-                complete: function(results) {
-                    const rows = results.data;
-                    const header = rows[5]; // Ligne 6 = index 5
-                    rows.splice(0,6); // Enlève les 6 premières lignes, ne garde que les données
-                    const data = rows.filter(r => r.length >= header.length && r[0]);
-                    let perfData = [], labels = [];
-                    const tbody = document.querySelector('#betsTable tbody');
-                    function updateTableWithBankroll(mult) {
-    tbody.innerHTML = '';
-    let bankrolls = [];
-    data.forEach((row, idx) => {
-        // Colonnes à ajuster : 7 (mise €), 8 (mise idéale), 10 (bankroll), 11 (gains), 12-15 (solde par bookmaker)
-        let newRow = row.slice(0, 16);
-        // Mise (argent réel)
-        if(newRow[7]) newRow[7] = (parseFloat(newRow[7].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
-        // Mise idéale théorique
-        if(newRow[8]) newRow[8] = (parseFloat(newRow[8].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
-        // Bankroll juste après le pari placé
-        let bankrollVal = 0;
-        if(newRow[10]) {
-            bankrollVal = parseFloat(row[10].replace(',','.')) * mult;
-            newRow[10] = bankrollVal.toFixed(2).replace('.',',') + '€';
-        }
-        bankrolls.push(bankrollVal);
-        // Gains
-        if(newRow[11]) newRow[11] = (parseFloat(newRow[11].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
-        // Parions Sport, Unibet, Betclic, Winamax
-        for(let i=12;i<=15;i++) if(newRow[i]) newRow[i] = (parseFloat(newRow[i].replace(',','.')) * mult).toFixed(2).replace('.',',') + '€';
-        const tr = document.createElement('tr');
-        tr.innerHTML = newRow.map(v => `<td>${v}</td>`).join('');
-        tbody.appendChild(tr);
-    });
-    updateChartWithBankroll(bankrolls);
-}
-let baseBankroll = 100;
-let chart;
-function updateChartWithBankroll(bankrolls) {
-    chart.data.labels = bankrolls.map((_, i) => i + 1);
-    chart.data.datasets[0].data = bankrolls;
-    chart.update();
-}
-chart = new Chart(document.getElementById('performanceChart'), {
-    type: 'line',
-    data: {
-        labels: [],
-        datasets: [{
-            label: 'Bénéfice cumulé (€)',
-            data: [],
-            borderColor: 'green',
-            fill: false
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: true } },
-        scales: { y: { beginAtZero: true } }
-    }
-});
-document.getElementById('bankrollInput').addEventListener('input', function() {
-    let val = parseFloat(this.value.replace(',','.'));
-    if(val > 0) {
-        let mult = val/baseBankroll;
-        updateTableWithBankroll(mult);
-    }
-});
-// Initial rendering
-let mult = parseFloat(document.getElementById('bankrollInput').value)/baseBankroll;
-updateTableWithBankroll(mult);
+                complete: res => {
+                    const rows = res.data.slice(6);
+                    const tbody = document.querySelector("#betsTable tbody");
 
-// Affichage des stats de performance
-function updatePerfStats(mult) {
-    if (!data.length) return;
-    const perfDiv = document.getElementById('perfStats');
-    // Dates
-    const parseDate = s => {
-        // format attendu : 16/11/2025 22:22 ou 1/1/2026
-        let [d, m, y, h, min] = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/).slice(1);
-        return new Date(y, m-1, d, h||0, min||0);
-    };
-    const firstDate = parseDate(data[0][1]);
-    const lastDate = parseDate(data[data.length-1][1]);
-    // Bankrolls
-    const start = baseBankroll * mult;
-    let end = 0;
-    for(let i=data.length-1;i>=0;i--) {
-        if(data[i][10]) { end = parseFloat(data[i][10].replace(',','.')) * mult; break; }
-    }
-    const perfEur = end - start;
-    const perfPct = ((end/start-1)*100).toFixed(2);
-    // Durée en mois/années
-    const ms = lastDate - firstDate;
-    const days = ms/86400000;
-    const months = days/30.4375;
-    const years = days/365.25;
-    // Perf annualisée et mensuelle
-    const perfAnn = (Math.pow(end/start, 1/years)-1)*100;
-    const perfMonth = (Math.pow(end/start, 1/months)-1)*100;
-    perfDiv.innerHTML = `<b>Performance réalisée :</b> <span style='color:${perfEur>=0?'green':'red'}'>${perfEur.toFixed(2).replace('.',',')}€</span> (${perfPct}%)<br>
-    <b>Performance annualisée :</b> ${isFinite(perfAnn)?perfAnn.toFixed(2):'N/A'}%<br>
-    <b>Performance mensuelle :</b> ${isFinite(perfMonth)?perfMonth.toFixed(2):'N/A'}%<br>
-    <b>Période :</b> du ${data[0][1]} au ${data[data.length-1][1]} (${days.toFixed(0)} jours)`;
-}
+                    function render(mult) {
+                        tbody.innerHTML = "";
+                        let bankrolls = [];
 
-function updateAll(mult) {
-    updateTableWithBankroll(mult);
-    updatePerfStats(mult);
-}
-document.getElementById('bankrollInput').addEventListener('input', function() {
-    let val = parseFloat(this.value.replace(',','.'));
-    if(val > 0) {
-        let mult = val/baseBankroll;
-        updateAll(mult);
-    }
-});
-updateAll(mult);
+                        rows.forEach(r => {
+                            if (!r[0]) return;
+
+                            let bankroll = r[10] ? parseFloat(r[10].replace(',','.')) * mult : 0;
+                            bankrolls.push(bankroll);
+
+                            const tr = document.createElement("tr");
+                            tr.innerHTML = `
+                        <td>${r[0]}</td>
+                        <td>${r[1]}</td>
+                        <td>${r[3]}</td>
+                        <td>${r[4]}</td>
+                        <td>${r[5]}</td>
+                        <td>${r[7]}</td>
+                        <td>${r[11]}</td>
+                        <td>${bankroll.toFixed(2)}€</td>
+                    `;
+                            tbody.appendChild(tr);
+                        });
+
+                        updateChart(bankrolls);
+                        updateStats(bankrolls, mult);
+                    }
+
+                    function updateChart(data) {
+                        chart.data.labels = data.map((_,i)=>i+1);
+                        chart.data.datasets[0].data = data;
+                        chart.update();
+                    }
+
+                    function updateStats(data, mult) {
+                        const start = baseBankroll * mult;
+                        const end = data[data.length-1] || start;
+                        const perf = end - start;
+                        const pct = ((end/start - 1)*100).toFixed(2);
+
+                        perfStats.innerHTML = `
+                    <b>Performance :</b>
+                    <span style="color:${perf>=0?'var(--accent)':'red'}">
+                        ${perf.toFixed(2)}€ (${pct}%)
+                    </span>
+                `;
+                    }
+
+                    chart = new Chart(document.getElementById("performanceChart"), {
+                        type: "line",
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                data: [],
+                                borderColor: "rgba(22,163,74,1)",
+                                borderWidth: 2,
+                                tension: 0.35,
+                                pointRadius: 0
+                            }]
+                        },
+                        options: {
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                x: { display: false },
+                                y: {
+                                    grid: { color: "#eee" },
+                                    ticks: { color: "#6b7280" }
+                                }
+                            }
+                        }
+                    });
+
+                    const input = document.getElementById("bankrollInput");
+                    const update = () => render(input.value / baseBankroll);
+                    input.addEventListener("input", update);
+                    update();
                 }
             });
         });
 </script>
+
 </body>
 </html>
