@@ -39,7 +39,7 @@
         const idxGagne = header.findIndex(h => h.toLowerCase().includes('gagné'));
         const idxBankroll = header.findIndex(h => h.toLowerCase().includes('bankroll juste après'));
         const idxGains = header.findIndex(h => h.toLowerCase().includes('gains'));
-        const data = rows.slice(1).filter(r => r.length > Math.max(idxMise, idxGagne, idxBankroll, idxGains));
+        const data = rows.filter(r => r[idxMise] && r[idxGagne] && r[idxBankroll] && r[idxGains]);
         let perfData = [], labels = [];
         const tbody = document.querySelector('#betsTable tbody');
         data.forEach(row => {
@@ -47,6 +47,7 @@
           const gagne = row[idxGagne];
           const bankroll = row[idxBankroll];
           const gains = row[idxGains];
+          if (!mise || !gagne || !bankroll || !gains) return;
           labels.push(labels.length+1);
           perfData.push(parseFloat(bankroll.replace(',','.')) || 0);
           const tr = document.createElement('tr');
