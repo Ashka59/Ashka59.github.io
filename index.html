@@ -255,26 +255,24 @@
         let bankrolls = [];
         let winCount = 0, loseCount = 0, pendingCount = 0;
         dataRows.forEach(r => {
-            // r[0]=Sport, r[1]=Bookmaker, r[2]=Date prise de paris, r[3]=Date événement, r[10]=Gagné ?
-            const eventDate = r[3] || r[2];
+            // r[0]=Sport, r[1]=Bookmaker, r[2]=Date, r[4]=Événement, r[5]=Résultat, r[6]=Cote, r[8]=Mise (argent réél), r[12]=Gains, r[11]=Bankroll, r[10]=Gagné ?
             const gagne = (r[10]||"").toLowerCase();
             let gagneLabel = "en cours", gagneColor = "#a259e6";
             if(gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
             else if(gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
             else { pendingCount++; }
-            const bankroll = r[11] ? parseFloat(r[11].replace(',','.')) * mult : 0;
-            bankrolls.push(bankroll);
+            const bankroll = r[11] && !isNaN(parseFloat(r[11].replace(',','.'))) ? (parseFloat(r[11].replace(',','.')) * mult).toFixed(2) : '';
             betsTable.querySelector("tbody").insertAdjacentHTML("beforeend", `
             <tr>
                 <td>${r[0]}</td>
                 <td>${r[1]}</td>
-                <td>${eventDate}</td>
+                <td>${r[2]}</td>
                 <td>${r[4]}</td>
                 <td>${r[5]}</td>
                 <td>${r[6]}</td>
                 <td>${r[8]}</td>
-                <td>${r[12]}</td>
-                <td>${bankroll.toFixed(2)}€</td>
+                <td>${r[12] ? r[12] + '€' : ''}</td>
+                <td>${bankroll ? bankroll + '€' : ''}</td>
                 <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
             </tr>
         `);
