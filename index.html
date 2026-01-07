@@ -192,16 +192,28 @@
             <table id="betsTable">
                 <thead>
                 <tr>
-                    <th>Sport</th>
-                    <th>Bookmaker</th>
-                    <th>Date</th>
-                    <th>Événement</th>
-                    <th>Résultat</th>
-                    <th>Cote</th>
-                    <th>Mise</th>
-                    <th>Gains</th>
-                    <th>Bankroll</th>
-                    <th>Gagné ?</th>
+                    <th data-col="0">Sport</th>
+                    <th data-col="1">Bookmaker</th>
+                    <th data-col="2">Date</th>
+                    <th data-col="4">Événement</th>
+                    <th data-col="5">Résultat</th>
+                    <th data-col="6">Cote</th>
+                    <th data-col="9">Mise</th>
+                    <th data-col="8">Gains</th>
+                    <th data-col="11">Bankroll</th>
+                    <th data-col="10">Gagné ?</th>
+                </tr>
+                <tr id="filterRow">
+                    <th><input type="text" data-col="0" style="width:90%"></th>
+                    <th><input type="text" data-col="1" style="width:90%"></th>
+                    <th><input type="text" data-col="2" style="width:90%"></th>
+                    <th><input type="text" data-col="4" style="width:90%"></th>
+                    <th><input type="text" data-col="5" style="width:90%"></th>
+                    <th><input type="text" data-col="6" style="width:90%"></th>
+                    <th><input type="text" data-col="9" style="width:90%"></th>
+                    <th><input type="text" data-col="8" style="width:90%"></th>
+                    <th><input type="text" data-col="11" style="width:90%"></th>
+                    <th><input type="text" data-col="10" style="width:90%"></th>
                 </tr>
                 </thead>
                 <tbody></tbody>
@@ -215,6 +227,8 @@
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv&gid=786289597';
     const baseBankroll = 100;
     let chart, dataRows = [], pieChart, sportPieChart;
+    let sortCol = null, sortDir = 1; // 1 = desc, -1 = asc
+    let filters = {};
 
     const parseDate = s => {
         const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
@@ -245,8 +259,24 @@
                 }]},
             options: chartOptions()
         });
-
         bankrollInput.addEventListener("input", update);
+        // Ajout listeners tri
+        betsTable.querySelectorAll('thead th[data-col]').forEach(th => {
+            th.style.cursor = 'pointer';
+            th.onclick = () => {
+                const col = th.getAttribute('data-col');
+                if (sortCol === col) sortDir = -sortDir;
+                else { sortCol = col; sortDir = 1; }
+                update();
+            };
+        });
+        // Ajout listeners filtres
+        betsTable.querySelectorAll('#filterRow input').forEach(input => {
+            input.oninput = () => {
+                filters[input.getAttribute('data-col')] = input.value.toLowerCase();
+                update();
+            };
+        });
         update();
     }
 
@@ -258,39 +288,56 @@
     }
 
     function renderTable(mult) {
-        betsTable.querySelector("tbody").innerHTML = "";
+        const tbody = betsTable.querySelector("tbody");
+        tbody.innerHTML = "";
+        let rows = dataRows.slice();
+        // Appliquer les filtres
+        Object.entries(filters).forEach(([col, val]) => {
+            if (val)
+                rows = rows.filter(r => (r[col]||"").toLowerCase().includes(val));
+        });
+        // Appliquer le tri
+        if (sortCol !== null) {
+            rows.sort((a, b) => {
+                let va = a[sortCol]||"", vb = b[sortCol]||"";
+                // Numérique si possible
+                if (!isNaN(parseFloat(va)) && !isNaN(parseFloat(vb))) {
+                    va = parseFloat(va.replace(',', '.'));
+                    vb = parseFloat(vb.replace(',', '.'));
+                }
+                if (va < vb) return sortDir;
+                if (va > vb) return -sortDir;
+                return 0;
+            });
+        }
         let bankrolls = [];
         let winCount = 0, loseCount = 0, pendingCount = 0;
-
-        dataRows.forEach(r => {
-            const eventDate = r[3]; // Date de l'évènement
+        rows.forEach(r => {
+            const eventDate = r[3];
             const gagne = (r[10] || "").toLowerCase();
             let gagneLabel = "en cours", gagneColor = "#a259e6";
             if (gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
             else if (gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
             else { pendingCount++; }
-
             const gains = r[8] ? (parseFloat(r[8].replace(',', '.')) * mult).toFixed(2) : "0.00";
             const mise = r[9] ? (parseFloat(r[9].replace(',', '.')) * mult).toFixed(2) : "0.00";
             const bankroll = r[11] ? (parseFloat(r[11].replace(',', '.')) * mult).toFixed(2) : "0.00";
             bankrolls.push(bankroll);
-
-            betsTable.querySelector("tbody").insertAdjacentHTML("beforeend", `
+            tbody.insertAdjacentHTML("beforeend", `
         <tr>
-            <td>${r[0]}</td> <!-- Sport -->
-            <td>${r[1]}</td> <!-- Bookmaker -->
+            <td>${r[0]}</td>
+            <td>${r[1]}</td>
             <td>${eventDate}</td>
-            <td>${r[4]}</td> <!-- Événement -->
-            <td>${r[5]}</td> <!-- Résultat -->
-            <td>${r[6]}</td> <!-- Cote -->
-            <td>${gains}€</td> <!-- Gains -->
-            <td>${mise}€</td> <!-- Mise -->
+            <td>${r[4]}</td>
+            <td>${r[5]}</td>
+            <td>${r[6]}</td>
+            <td>${gains}€</td>
+            <td>${mise}€</td>
             <td>${bankroll}€</td>
             <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
         </tr>
         `);
         });
-
         chart.data.labels = bankrolls.map((_,i)=>i+1);
         chart.data.datasets[0].data = bankrolls;
         chart.update();
