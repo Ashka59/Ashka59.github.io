@@ -263,6 +263,8 @@
             else if (gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
             else { pendingCount++; }
 
+            const gains = r[8] ? parseFloat(r[8].replace(',', '.')) * mult : 0;
+            const mise = r[9] ? parseFloat(r[9].replace(',', '.')) * mult : 0;
             const bankroll = r[11] ? parseFloat(r[11].replace(',', '.')) * mult : 0;
             bankrolls.push(bankroll);
 
@@ -274,8 +276,8 @@
             <td>${r[4]}</td> <!-- Événement -->
             <td>${r[5]}</td> <!-- Résultat -->
             <td>${r[6]}</td> <!-- Cote -->
-            <td>${r[8]}</td> <!-- Mise réel -->
-            <td>${r[9]}</td> <!-- Mise idéale théorique ou gains -->
+            <td>${gains}</td> <!-- Gains -->
+            <td>${mise}</td> <!-- Mise -->
             <td>${bankroll.toFixed(2)}€</td>
             <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
         </tr>
