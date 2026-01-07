@@ -322,7 +322,7 @@
 
     function renderStats(mult) {
         const first = parseDate(dataRows[0][2]); // Date prise de paris
-        const last = parseDate(dataRows[dataRows.length-1][3]); // Date de l'évènement
+        const last = parseDate(dataRows[dataRows.length-1][2]); // Date de l'évènement
         const start = baseBankroll * mult;
         const end = parseFloat(dataRows[dataRows.length-1][11].replace(',', '.')) * mult;
 
