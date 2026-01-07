@@ -235,7 +235,7 @@
         });
 
     function init() {
-        chart = new Chart(performanceChart, {
+        chart = new Chart(document.getElementById('performanceChart'), {
             type: "line",
             data: { labels: [], datasets: [{
                     data: [],
@@ -305,7 +305,7 @@
         const labels = ["Gagné", "Perdu", "En cours"];
         const colors = ["#22c55e", "#ef4444", "#a259e6"];
         if(!pieChart) {
-            pieChart = new Chart(statusPieChart, {
+            pieChart = new Chart(document.getElementById('statusPieChart'), {
                 type: 'pie',
                 data: {
                     labels,
@@ -343,7 +343,7 @@
             "#22c55e", "#ef4444", "#a259e6", "#f59e42", "#3b82f6", "#eab308", "#10b981", "#6366f1"
         ];
         if (!sportPieChart) {
-            sportPieChart = new Chart(sportPieChart, {
+            sportPieChart = new Chart(document.getElementById('sportPieChart'), {
                 type: 'pie',
                 data: {
                     labels,
