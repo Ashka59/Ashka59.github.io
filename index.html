@@ -319,8 +319,8 @@
             if (gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
             else if (gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
             else { pendingCount++; }
-            const gains = r[8] ? (parseFloat(r[8].replace(',', '.')) * mult).toFixed(2) : "0.00";
-            const mise = r[9] ? (parseFloat(r[9].replace(',', '.')) * mult).toFixed(2) : "0.00";
+            const gains = r[8] ? (parseFloat(r[8].replace(',', '.')) * mult).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00";
+            const mise = r[9] ? (parseFloat(r[9].replace(',', '.')) * mult).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00";
             const bankroll = r[11] ? (parseFloat(r[11].replace(',', '.')) * mult).toFixed(2) : "0.00";
             bankrolls.push(bankroll);
             tbody.insertAdjacentHTML("beforeend", `
@@ -331,7 +331,7 @@
             <td>${r[4]}</td>
             <td>${r[5]}</td>
             <td>${r[6]}</td>
-            <td>${gains}€</td>
+            <td>${gains}%</td>
             <td>${mise}€</td>
             <td>${bankroll}€</td>
             <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
