@@ -222,7 +222,7 @@
             Papa.parse(csv, {
                 skipEmptyLines: true,
                 complete: res => {
-                    dataRows = res.data.slice(7).filter(r => r[0]);
+                    dataRows = res.data.slice(6).filter(r => r[0]);
                     init();
                 }
             });
