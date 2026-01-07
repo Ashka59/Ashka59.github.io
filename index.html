@@ -40,7 +40,8 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 100%;
+            width: 100%;
             margin: auto;
             padding: 1.5rem;
         }
@@ -55,9 +56,9 @@
         .card {
             background: var(--card);
             border-radius: 16px;
-            padding: 1.25rem;
+            padding: 1.5rem 2rem;
             box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
         }
 
         .row {
@@ -116,17 +117,18 @@
         /* ========= TABLE ========= */
         .table-wrapper {
             overflow-x: auto;
+            max-width: 100%;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.85rem;
-            min-width: 900px;
+            font-size: 0.95rem;
+            min-width: 600px;
         }
 
         th, td {
-            padding: 0.75rem;
+            padding: 0.85rem;
             border-bottom: 1px solid var(--border);
             white-space: nowrap;
         }
@@ -171,10 +173,14 @@
             <div class="chart-wrapper" style="flex:2; min-width:0;">
                 <canvas id="performanceChart"></canvas>
             </div>
-            <div style="flex:1; min-width:220px; display:flex; align-items:center; justify-content:center;">
+            <div style="flex:1; min-width:220px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:2rem;">
                 <div style="width:210px;">
                     <canvas id="statusPieChart"></canvas>
                     <div id="pieStats" style="text-align:center; margin-top:0.5rem; font-size:0.95rem;"></div>
+                </div>
+                <div style="width:210px;">
+                    <canvas id="sportPieChart"></canvas>
+                    <div id="sportPieStats" style="text-align:center; margin-top:0.5rem; font-size:0.95rem;"></div>
                 </div>
             </div>
         </div>
@@ -208,7 +214,7 @@
 <script>
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv&gid=786289597';
     const baseBankroll = 100;
-    let chart, dataRows = [], pieChart;
+    let chart, dataRows = [], pieChart, sportPieChart;
 
     const parseDate = s => {
         const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
@@ -248,6 +254,7 @@
         const mult = bankrollInput.value / baseBankroll;
         renderTable(mult);
         renderStats(mult);
+        renderSportPieChart();
     }
 
     function renderTable(mult) {
@@ -320,6 +327,49 @@
             html += `<span style="color:${colors[i]};font-weight:600;">${labels[i]}</span> : ${pct}% (${n})<br>`;
         });
         pieStats.innerHTML = html;
+    }
+
+    function renderSportPieChart() {
+        // Compter les occurrences par sport
+        const sportCounts = {};
+        dataRows.forEach(r => {
+            const sport = r[0] || "Inconnu";
+            sportCounts[sport] = (sportCounts[sport] || 0) + 1;
+        });
+        const labels = Object.keys(sportCounts);
+        const data = Object.values(sportCounts);
+        const total = data.reduce((a, b) => a + b, 0);
+        const colors = [
+            "#22c55e", "#ef4444", "#a259e6", "#f59e42", "#3b82f6", "#eab308", "#10b981", "#6366f1"
+        ];
+        if (!sportPieChart) {
+            sportPieChart = new Chart(sportPieChart, {
+                type: 'pie',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        backgroundColor: colors.slice(0, labels.length)
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: { display: true, position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted') } }
+                    }
+                }
+            });
+        } else {
+            sportPieChart.data.labels = labels;
+            sportPieChart.data.datasets[0].data = data;
+            sportPieChart.update();
+        }
+        // Affichage des stats
+        let html = '';
+        labels.forEach((sport, i) => {
+            const pct = total ? (data[i] / total * 100).toFixed(1) : '0.0';
+            html += `<span style="color:${colors[i % colors.length]};font-weight:600;">${sport}</span> : ${pct}% (${data[i]})<br>`;
+        });
+        sportPieStats.innerHTML = html;
     }
 
     function renderStats(mult) {
