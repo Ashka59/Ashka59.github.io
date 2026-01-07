@@ -167,8 +167,16 @@
     </div>
 
     <div class="card">
-        <div class="chart-wrapper">
-            <canvas id="performanceChart"></canvas>
+        <div class="row">
+            <div class="chart-wrapper" style="flex:2; min-width:0;">
+                <canvas id="performanceChart"></canvas>
+            </div>
+            <div style="flex:1; min-width:220px; display:flex; align-items:center; justify-content:center;">
+                <div style="width:210px;">
+                    <canvas id="statusPieChart"></canvas>
+                    <div id="pieStats" style="text-align:center; margin-top:0.5rem; font-size:0.95rem;"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -186,6 +194,7 @@
                     <th>Mise</th>
                     <th>Gains</th>
                     <th>Bankroll</th>
+                    <th>Gagné ?</th>
                 </tr>
                 </thead>
                 <tbody></tbody>
@@ -198,7 +207,7 @@
 <script>
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv&gid=786289597';
     const baseBankroll = 100;
-    let chart, dataRows = [];
+    let chart, dataRows = [], pieChart;
 
     const parseDate = s => {
         const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
@@ -243,28 +252,65 @@
     function renderTable(mult) {
         betsTable.querySelector("tbody").innerHTML = "";
         let bankrolls = [];
-
+        let winCount = 0, loseCount = 0, pendingCount = 0;
         dataRows.forEach(r => {
+            // r[2] = Date événement, r[12] = Gagné ?
+            const eventDate = r[2] || r[1];
+            const gagne = (r[12]||"").toLowerCase();
+            let gagneLabel = "en cours", gagneColor = "#a259e6";
+            if(gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
+            else if(gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
+            else { pendingCount++; }
             const bankroll = r[10] ? parseFloat(r[10].replace(',','.')) * mult : 0;
             bankrolls.push(bankroll);
-
             betsTable.querySelector("tbody").insertAdjacentHTML("beforeend", `
             <tr>
                 <td>${r[0]}</td>
-                <td>${r[1]}</td>
+                <td>${eventDate}</td>
                 <td>${r[3]}</td>
                 <td>${r[4]}</td>
                 <td>${r[5]}</td>
                 <td>${r[7]}</td>
                 <td>${r[11]}</td>
                 <td>${bankroll.toFixed(2)}€</td>
+                <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
             </tr>
         `);
         });
-
         chart.data.labels = bankrolls.map((_,i)=>i+1);
         chart.data.datasets[0].data = bankrolls;
         chart.update();
+        renderPieChart(winCount, loseCount, pendingCount);
+    }
+
+    function renderPieChart(win, lose, pending) {
+        const total = win+lose+pending;
+        const data = [win, lose, pending];
+        const labels = ["Gagné", "Perdu", "En cours"];
+        const colors = ["#22c55e", "#ef4444", "#a259e6"];
+        if(!pieChart) {
+            pieChart = new Chart(statusPieChart, {
+                type: 'pie',
+                data: {
+                    labels,
+                    datasets: [{ data, backgroundColor: colors }]
+                },
+                options: {
+                    plugins: {
+                        legend: { display: true, position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted') } }
+                    }
+                }
+            });
+        } else {
+            pieChart.data.datasets[0].data = data;
+            pieChart.update();
+        }
+        let html = '';
+        [win, lose, pending].forEach((n,i) => {
+            const pct = total ? (n/total*100).toFixed(1) : '0.0';
+            html += `<span style="color:${colors[i]};font-weight:600;">${labels[i]}</span> : ${pct}% (${n})<br>`;
+        });
+        pieStats.innerHTML = html;
     }
 
     function renderStats(mult) {
@@ -336,4 +382,3 @@
 
 </body>
 </html>
-
