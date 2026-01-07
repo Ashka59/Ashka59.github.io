@@ -222,7 +222,7 @@
             Papa.parse(csv, {
                 skipEmptyLines: true,
                 complete: res => {
-                    dataRows = res.data.slice(6).filter(r => r[0]);
+                    dataRows = res.data.slice(7).filter(r => r[0]);
                     init();
                 }
             });
@@ -255,24 +255,26 @@
         let bankrolls = [];
         let winCount = 0, loseCount = 0, pendingCount = 0;
         dataRows.forEach(r => {
-            // r[0]=Sport, r[1]=Bookmaker, r[2]=Date, r[4]=Événement, r[5]=Résultat, r[6]=Cote, r[8]=Mise (argent réél), r[12]=Gains, r[11]=Bankroll, r[10]=Gagné ?
+            // r[2] = Date événement, r[12] = Gagné ?
+            const eventDate = r[2];
             const gagne = (r[10]||"").toLowerCase();
             let gagneLabel = "en cours", gagneColor = "#a259e6";
             if(gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
             else if(gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
             else { pendingCount++; }
-            const bankroll = r[11] && !isNaN(parseFloat(r[11].replace(',','.'))) ? (parseFloat(r[11].replace(',','.')) * mult).toFixed(2) : '';
+            const bankroll = r[11] ? parseFloat(r[11].replace(',','.')) * mult : 0;
+            bankrolls.push(bankroll);
             betsTable.querySelector("tbody").insertAdjacentHTML("beforeend", `
             <tr>
                 <td>${r[0]}</td>
                 <td>${r[1]}</td>
-                <td>${r[2]}</td>
+                <td>${eventDate}</td>
                 <td>${r[4]}</td>
                 <td>${r[5]}</td>
                 <td>${r[6]}</td>
                 <td>${r[8]}</td>
-                <td>${r[12] ? r[12] + '€' : ''}</td>
-                <td>${bankroll ? bankroll + '€' : ''}</td>
+                <td>${r[12]}</td>
+                <td>${bankroll.toFixed(2)}€</td>
                 <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
             </tr>
         `);
@@ -314,7 +316,7 @@
     }
 
     function renderStats(mult) {
-        const first = parseDate(dataRows[0][2]);
+        const first = parseDate(dataRows[0][1]);
         const last = parseDate(dataRows[dataRows.length-1][2]);
         const start = baseBankroll * mult;
         const end = parseFloat(dataRows[dataRows.length-1][11].replace(',','.')) * mult;
