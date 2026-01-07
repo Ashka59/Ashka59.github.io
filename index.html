@@ -186,7 +186,6 @@
             <table id="betsTable">
                 <thead>
                 <tr>
-                    <th>Sport</th>
                     <th>Bookmaker</th>
                     <th>Date</th>
                     <th>Événement</th>
@@ -222,7 +221,7 @@
             Papa.parse(csv, {
                 skipEmptyLines: true,
                 complete: res => {
-                    dataRows = res.data.slice(7).filter(r => r[0]);
+                    dataRows = res.data.slice(6).filter(r => r[0]);
                     init();
                 }
             });
@@ -254,43 +253,35 @@
         betsTable.querySelector("tbody").innerHTML = "";
         let bankrolls = [];
         let winCount = 0, loseCount = 0, pendingCount = 0;
-
         dataRows.forEach(r => {
-            const eventDate = r[3]; // Date de l'évènement
-            const gagne = (r[10] || "").toLowerCase();
+            // r[2] = Date événement, r[12] = Gagné ?
+            const eventDate = r[2] || r[1];
+            const gagne = (r[9]||"").toLowerCase();
             let gagneLabel = "en cours", gagneColor = "#a259e6";
-            if (gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
-            else if (gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
+            if(gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
+            else if(gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
             else { pendingCount++; }
-
-            const gains = r[8] ? parseFloat(r[8].replace(',', '.')) * mult : 0;
-            const mise = r[9] ? parseFloat(r[9].replace(',', '.')) * mult : 0;
-            const bankroll = r[11] ? parseFloat(r[11].replace(',', '.')) * mult : 0;
+            const bankroll = r[10] ? parseFloat(r[10].replace(',','.')) * mult : 0;
             bankrolls.push(bankroll);
-
             betsTable.querySelector("tbody").insertAdjacentHTML("beforeend", `
-        <tr>
-            <td>${r[0]}</td> <!-- Sport -->
-            <td>${r[1]}</td> <!-- Bookmaker -->
-            <td>${eventDate}</td>
-            <td>${r[4]}</td> <!-- Événement -->
-            <td>${r[5]}</td> <!-- Résultat -->
-            <td>${r[6]}</td> <!-- Cote -->
-            <td>${gains}</td> <!-- Gains -->
-            <td>${mise}</td> <!-- Mise -->
-            <td>${bankroll.toFixed(2)}€</td>
-            <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
-        </tr>
+            <tr>
+                <td>${r[0]}</td>
+                <td>${eventDate}</td>
+                <td>${r[3]}</td>
+                <td>${r[4]}</td>
+                <td>${r[5]}</td>
+                <td>${r[7]}</td>
+                <td>${r[11]}</td>
+                <td>${bankroll.toFixed(2)}€</td>
+                <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
+            </tr>
         `);
         });
-
         chart.data.labels = bankrolls.map((_,i)=>i+1);
         chart.data.datasets[0].data = bankrolls;
         chart.update();
-
         renderPieChart(winCount, loseCount, pendingCount);
     }
-
 
     function renderPieChart(win, lose, pending) {
         const total = win+lose+pending;
@@ -323,10 +314,10 @@
     }
 
     function renderStats(mult) {
-        const first = parseDate(dataRows[0][2]); // Date prise de paris
-        const last = parseDate(dataRows[dataRows.length-1][2]); // Date de l'évènement
+        const first = parseDate(dataRows[0][1]);
+        const last = parseDate(dataRows[dataRows.length-1][1]);
         const start = baseBankroll * mult;
-        const end = parseFloat(dataRows[dataRows.length-1][11].replace(',', '.')) * mult;
+        const end = parseFloat(dataRows[dataRows.length-1][10].replace(',','.')) * mult;
 
         const perf = end - start;
         const pct = (end/start - 1) * 100;
@@ -339,27 +330,26 @@
         const mon = (Math.pow(end/start, 1/months)-1)*100;
 
         perfStats.innerHTML = `
-    <div class="stat">
-        <b>Performance</b>
-        <span style="color:${perf>=0?'var(--accent)':'red'}">
-            ${perf.toFixed(2)}€ (${pct.toFixed(2)}%)
-        </span>
-    </div>
-    <div class="stat">
-        <b>Annualisée</b>
-        ${isFinite(ann)?ann.toFixed(2):'—'} %
-    </div>
-    <div class="stat">
-        <b>Mensuelle</b>
-        ${isFinite(mon)?mon.toFixed(2):'—'} %
-    </div>
-    <div class="stat">
-        <b>Durée</b>
-        ${days.toFixed(0)} jours
-    </div>
+        <div class="stat">
+            <b>Performance</b>
+            <span style="color:${perf>=0?'var(--accent)':'red'}">
+                ${perf.toFixed(2)}€ (${pct.toFixed(2)}%)
+            </span>
+        </div>
+        <div class="stat">
+            <b>Annualisée</b>
+            ${isFinite(ann)?ann.toFixed(2):'—'} %
+        </div>
+        <div class="stat">
+            <b>Mensuelle</b>
+            ${isFinite(mon)?mon.toFixed(2):'—'} %
+        </div>
+        <div class="stat">
+            <b>Durée</b>
+            ${days.toFixed(0)} jours
+        </div>
     `;
     }
-
 
     /* ========= THEME ========= */
     themeToggle.onclick = () => {
