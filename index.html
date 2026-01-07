@@ -254,15 +254,14 @@
         let bankrolls = [];
         let winCount = 0, loseCount = 0, pendingCount = 0;
         dataRows.forEach(r => {
-            // r[2] = Date événement, r[12] = Gagné ?
+            // r[2] = Date événement, r[8] = Gagné ?
             const eventDate = r[2] || r[1];
-            const gagne = (r[12]||"").toLowerCase();
+            const gagne = (r[8]||"").toLowerCase();
             let gagneLabel = "en cours", gagneColor = "#a259e6";
             if(gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
             else if(gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
             else { pendingCount++; }
-            const bankroll = r[10] ? parseFloat(r[10].replace(',','.')) * mult : 0;
-            bankrolls.push(bankroll);
+            const bankroll = r[9] ? parseFloat(r[9].replace(',','.').replace('€','')) * mult : 0;
             betsTable.querySelector("tbody").insertAdjacentHTML("beforeend", `
             <tr>
                 <td>${r[0]}</td>
@@ -271,14 +270,14 @@
                 <td>${r[4]}</td>
                 <td>${r[5]}</td>
                 <td>${r[7]}</td>
-                <td>${r[11]}</td>
+                <td>${r[10]}</td>
                 <td>${bankroll.toFixed(2)}€</td>
                 <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
             </tr>
         `);
         });
-        chart.data.labels = bankrolls.map((_,i)=>i+1);
-        chart.data.datasets[0].data = bankrolls;
+        chart.data.labels = dataRows.map((_,i)=>i+1);
+        chart.data.datasets[0].data = dataRows.map(r => r[9] ? parseFloat(r[9].replace(',','.').replace('€','')) * mult : 0);
         chart.update();
         renderPieChart(winCount, loseCount, pendingCount);
     }
