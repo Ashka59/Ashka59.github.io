@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <title>Suivi des paris</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betting Tracker</title>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -154,12 +155,12 @@
 <body>
 <div class="container">
 
-    <h1>Suivi de mes paris</h1>
+    <h1>Betting Tracker</h1>
 
     <div class="card">
         <div class="row">
             <div>
-                <label>Bankroll initiale (€)</label><br>
+                <label>Initial Bankroll (€)</label><br>
                 <input type="number" id="bankrollInput" value="100" min="1" step="any">
             </div>
             <div class="toggle" id="themeToggle">🌙 Dark mode</div>
@@ -187,7 +188,7 @@
     </div>
 
     <div class="card">
-        <h2 style="margin-top:0;font-size:1.1rem;">Historique</h2>
+        <h2 style="margin-top:0;font-size:1.1rem;">History</h2>
         <div class="table-wrapper">
             <table id="betsTable">
                 <thead>
@@ -195,13 +196,13 @@
                     <th data-col="0">Sport</th>
                     <th data-col="1">Bookmaker</th>
                     <th data-col="3">Date</th>
-                    <th data-col="4">Événement</th>
-                    <th data-col="5">Résultat</th>
-                    <th data-col="6">Cote</th>
-                    <th data-col="9">Mise</th>
-                    <th data-col="8">Gains</th>
+                    <th data-col="4">Event</th>
+                    <th data-col="5">Result</th>
+                    <th data-col="6">Odds</th>
+                    <th data-col="9">Stake</th>
+                    <th data-col="8">Winnings</th>
                     <th data-col="11">Bankroll</th>
-                    <th data-col="10">Gagné ?</th>
+                    <th data-col="10">Won?</th>
                 </tr>
                 <tr id="filterRow">
                     <th><input type="text" data-col="0" style="width:90%"></th>
@@ -315,9 +316,9 @@
         rows.forEach(r => {
             const eventDate = r[3];
             const gagne = (r[10] || "").toLowerCase();
-            let gagneLabel = "en cours", gagneColor = "#a259e6";
-            if (gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
-            else if (gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
+            let gagneLabel = "pending", gagneColor = "#a259e6";
+            if (gagne === "oui") { gagneLabel = "yes"; gagneColor = "#22c55e"; winCount++; }
+            else if (gagne === "non") { gagneLabel = "no"; gagneColor = "#ef4444"; loseCount++; }
             else { pendingCount++; }
             const gains = r[8] ? (parseFloat(r[8].replace(',', '.')) * mult).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00";
             const bankroll = r[11] ? (parseFloat(r[11].replace(',', '.')) * mult).toFixed(2) : "0.00";
@@ -348,7 +349,7 @@
     function renderPieChart(win, lose, pending) {
         const total = win+lose+pending;
         const data = [win, lose, pending];
-        const labels = ["Gagné", "Perdu", "En cours"];
+        const labels = ["Won", "Lost", "Pending"];
         const colors = ["#22c55e", "#ef4444", "#a259e6"];
         if(!pieChart) {
             pieChart = new Chart(document.getElementById('statusPieChart'), {
@@ -379,7 +380,7 @@
         // Compter les occurrences par sport
         const sportCounts = {};
         dataRows.forEach(r => {
-            const sport = r[0] || "Inconnu";
+            const sport = r[0] || "Unknown";
             sportCounts[sport] = (sportCounts[sport] || 0) + 1;
         });
         const labels = Object.keys(sportCounts);
@@ -442,16 +443,16 @@
         </span>
     </div>
     <div class="stat">
-        <b>Annualisée</b>
+        <b>Annualized</b>
         ${isFinite(ann)?ann.toFixed(2):'—'} %
     </div>
     <div class="stat">
-        <b>Mensuelle</b>
+        <b>Monthly</b>
         ${isFinite(mon)?mon.toFixed(2):'—'} %
     </div>
     <div class="stat">
-        <b>Durée</b>
-        ${days.toFixed(0)} jours
+        <b>Duration</b>
+        ${days.toFixed(0)} days
     </div>
     `;
     }
