@@ -1,12 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <title>Suivi des paris</title>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio - Software Engineer</title>
     <style>
         /* ========= THEME ========= */
         :root {
@@ -16,7 +13,6 @@
             --muted: #6b7280;
             --accent: #16a34a;
             --border: #e5e7eb;
-            --grid: #eeeeee;
         }
 
         [data-theme="dark"] {
@@ -26,466 +22,167 @@
             --muted: #9ca3af;
             --accent: #22c55e;
             --border: #262a32;
-            --grid: #1f232b;
         }
 
-        /* ========= BASE ========= */
-        * { box-sizing: border-box; }
+        * { 
+            box-sizing: border-box; 
+            margin: 0;
+            padding: 0;
+        }
 
         body {
-            margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
             background: var(--bg);
             color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
         }
 
         .container {
-            max-width: 100%;
+            max-width: 900px;
             width: 100%;
-            margin: auto;
-            padding: 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
         }
 
         h1 {
-            font-size: 1.7rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent), #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
-        /* ========= CARDS ========= */
-        .card {
-            background: var(--card);
-            border-radius: 16px;
-            padding: 1.5rem 2rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--muted);
+            font-weight: 400;
+        }
+
+        .projects {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
             margin-bottom: 2rem;
         }
 
-        .row {
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
             gap: 1rem;
-            flex-wrap: wrap;
         }
 
-        label {
-            font-size: 0.85rem;
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .card p {
             color: var(--muted);
-        }
-
-        input[type="number"] {
-            padding: 0.45rem 0.7rem;
-            font-size: 1rem;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text);
-            width: 140px;
-        }
-
-        /* ========= TOGGLE ========= */
-        .toggle {
-            cursor: pointer;
-            font-size: 0.9rem;
-            color: var(--muted);
-        }
-
-        /* ========= STATS ========= */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .stat {
-            font-size: 0.9rem;
-        }
-
-        .stat b {
-            display: block;
-            font-weight: 500;
-            margin-bottom: 0.25rem;
-        }
-
-        /* ========= CHART ========= */
-        .chart-wrapper {
-            height: 280px;
-        }
-
-        /* ========= TABLE ========= */
-        .table-wrapper {
-            overflow-x: auto;
-            max-width: 100%;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
             font-size: 0.95rem;
-            min-width: 600px;
+            flex-grow: 1;
         }
 
-        th, td {
-            padding: 0.85rem;
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: var(--accent);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.2s;
         }
 
-        th {
-            text-align: left;
-            font-weight: 500;
-            color: var(--muted);
+        .btn:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
         }
 
-        tr:hover {
-            background: rgba(255,255,255,0.03);
+        .toggle {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            cursor: pointer;
+            font-size: 1.5rem;
+            padding: 0.5rem;
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
         }
 
-        /* ========= MOBILE ========= */
+        .toggle:hover {
+            transform: scale(1.1);
+        }
+
         @media (max-width: 768px) {
-            h1 { font-size: 1.4rem; }
-            .chart-wrapper { height: 220px; }
+            h1 { font-size: 2rem; }
+            .subtitle { font-size: 1rem; }
+            .projects { grid-template-columns: 1fr; }
         }
     </style>
 </head>
-
 <body>
-<div class="container">
+    <div class="toggle" id="themeToggle">🌙</div>
+    
+    <div class="container">
+        <header>
+            <h1>Software Engineer</h1>
+            <p class="subtitle">Building innovative solutions and tracking performance</p>
+        </header>
 
-    <h1>Suivi de mes paris</h1>
-
-    <div class="card">
-        <div class="row">
-            <div>
-                <label>Bankroll initiale (€)</label><br>
-                <input type="number" id="bankrollInput" value="100" min="1" step="any">
+        <div class="projects">
+            <div class="card">
+                <h2>📊 Factorstock</h2>
+                <p>The simplest stock screener for factor investing. Analyze stocks with academic factors and get clear scores instantly.</p>
+                <a href="https://factorstock.com/" target="_blank" class="btn">Visit Factorstock</a>
             </div>
-            <div class="toggle" id="themeToggle">🌙 Dark mode</div>
-        </div>
 
-        <div class="stats" id="perfStats"></div>
-    </div>
-
-    <div class="card">
-        <div class="row">
-            <div class="chart-wrapper" style="flex:2; min-width:0;">
-                <canvas id="performanceChart"></canvas>
+            <div class="card">
+                <h2>🎲 Betting Tracker</h2>
+                <p>Advanced betting performance analytics with real-time tracking, statistics, and portfolio management.</p>
+                <a href="bets.html" class="btn">View Tracker</a>
             </div>
-            <div style="flex:1; min-width:220px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:2rem;">
-                <div style="width:210px;">
-                    <canvas id="statusPieChart"></canvas>
-                    <div id="pieStats" style="text-align:center; margin-top:0.5rem; font-size:0.95rem;"></div>
-                </div>
-                <div style="width:210px;">
-                    <canvas id="sportPieChart"></canvas>
-                    <div id="sportPieStats" style="text-align:center; margin-top:0.5rem; font-size:0.95rem;"></div>
-                </div>
+
+            <div class="card">
+                <h2>🎵 Music</h2>
+                <p>Check out my musical side project and creative work.</p>
+                <a href="http://youtu.be/zjQkFwboEsA" target="_blank" class="btn">Watch Video</a>
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <h2 style="margin-top:0;font-size:1.1rem;">Historique</h2>
-        <div class="table-wrapper">
-            <table id="betsTable">
-                <thead>
-                <tr>
-                    <th data-col="0">Sport</th>
-                    <th data-col="1">Bookmaker</th>
-                    <th data-col="3">Date</th>
-                    <th data-col="4">Événement</th>
-                    <th data-col="5">Résultat</th>
-                    <th data-col="6">Cote</th>
-                    <th data-col="9">Mise</th>
-                    <th data-col="8">Gains</th>
-                    <th data-col="11">Bankroll</th>
-                    <th data-col="10">Gagné ?</th>
-                </tr>
-                <tr id="filterRow">
-                    <th><input type="text" data-col="0" style="width:90%"></th>
-                    <th><input type="text" data-col="1" style="width:90%"></th>
-                    <th><input type="text" data-col="3" style="width:90%"></th>
-                    <th><input type="text" data-col="4" style="width:90%"></th>
-                    <th><input type="text" data-col="5" style="width:90%"></th>
-                    <th><input type="text" data-col="6" style="width:90%"></th>
-                    <th><input type="text" data-col="9" style="width:90%"></th>
-                    <th><input type="text" data-col="8" style="width:90%"></th>
-                    <th><input type="text" data-col="11" style="width:90%"></th>
-                    <th><input type="text" data-col="10" style="width:90%"></th>
-                </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
-
-</div>
-
-<script>
-    const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv&gid=786289597';
-    const baseBankroll = 100;
-    let chart, dataRows = [], pieChart, sportPieChart;
-    let sortCol = null, sortDir = 1; // 1 = desc, -1 = asc
-    let filters = {};
-
-    const parseDate = s => {
-        const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
-        if (!m) return null;
-        return new Date(m[3], m[2]-1, m[1], m[4]||0, m[5]||0);
-    };
-
-    fetch(sheetUrl)
-        .then(r => r.text())
-        .then(csv => {
-            Papa.parse(csv, {
-                skipEmptyLines: true,
-                complete: res => {
-                    dataRows = res.data.slice(6).filter(r => r[0]);
-                    init();
-                }
-            });
-        });
-
-    function init() {
-        chart = new Chart(document.getElementById('performanceChart'), {
-            type: "line",
-            data: { labels: [], datasets: [{
-                    data: [],
-                    borderWidth: 2,
-                    tension: 0.35,
-                    pointRadius: 0
-                }]},
-            options: chartOptions()
-        });
-        bankrollInput.addEventListener("input", update);
-        // Ajout listeners tri
-        betsTable.querySelectorAll('thead th[data-col]').forEach(th => {
-            th.style.cursor = 'pointer';
-            th.onclick = () => {
-                const col = th.getAttribute('data-col');
-                if (sortCol === col) sortDir = -sortDir;
-                else { sortCol = col; sortDir = 1; }
-                update();
-            };
-        });
-        // Ajout listeners filtres
-        betsTable.querySelectorAll('#filterRow input').forEach(input => {
-            input.oninput = () => {
-                filters[input.getAttribute('data-col')] = input.value.toLowerCase();
-                update();
-            };
-        });
-        update();
-    }
-
-    function update() {
-        const mult = bankrollInput.value / baseBankroll;
-        renderTable(mult);
-        renderStats(mult);
-        renderSportPieChart();
-    }
-
-    function renderTable(mult) {
-        const tbody = betsTable.querySelector("tbody");
-        tbody.innerHTML = "";
-        let rows = dataRows.slice();
-        // Appliquer les filtres
-        Object.entries(filters).forEach(([col, val]) => {
-            if (val)
-                rows = rows.filter(r => (r[col]||"").toLowerCase().includes(val));
-        });
-        // Appliquer le tri
-        if (sortCol !== null) {
-            rows.sort((a, b) => {
-                let va = a[sortCol]||"", vb = b[sortCol]||"";
-                // Numérique si possible
-                if (!isNaN(parseFloat(va)) && !isNaN(parseFloat(vb))) {
-                    va = parseFloat(va.replace(',', '.'));
-                    vb = parseFloat(vb.replace(',', '.'));
-                }
-                if (va < vb) return sortDir;
-                if (va > vb) return -sortDir;
-                return 0;
-            });
-        }
-        let bankrolls = [];
-        let winCount = 0, loseCount = 0, pendingCount = 0;
-        rows.forEach(r => {
-            const eventDate = r[3];
-            const gagne = (r[10] || "").toLowerCase();
-            let gagneLabel = "en cours", gagneColor = "#a259e6";
-            if (gagne === "oui") { gagneLabel = "oui"; gagneColor = "#22c55e"; winCount++; }
-            else if (gagne === "non") { gagneLabel = "non"; gagneColor = "#ef4444"; loseCount++; }
-            else { pendingCount++; }
-            const gains = r[8] ? (parseFloat(r[8].replace(',', '.')) * mult).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00";
-            const bankroll = r[11] ? (parseFloat(r[11].replace(',', '.')) * mult).toFixed(2) : "0.00";
-            bankrolls.push(bankroll);
-            tbody.insertAdjacentHTML("beforeend", `
-        <tr>
-            <td>${r[0]}</td>
-            <td>${r[1]}</td>
-            <td>${eventDate}</td>
-            <td>${r[4]}</td>
-            <td>${r[5]}</td>
-            <td>${r[6]}</td>
-            <td>${r[7]}</td>
-            <td>${gains}€</td>
-            <td>${bankroll}€</td>
-            <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
-        </tr>
-        `);
-        });
-        chart.data.labels = bankrolls.map((_,i)=>i+1);
-        chart.data.datasets[0].data = bankrolls;
-        chart.update();
-
-        renderPieChart(winCount, loseCount, pendingCount);
-    }
-
-
-    function renderPieChart(win, lose, pending) {
-        const total = win+lose+pending;
-        const data = [win, lose, pending];
-        const labels = ["Gagné", "Perdu", "En cours"];
-        const colors = ["#22c55e", "#ef4444", "#a259e6"];
-        if(!pieChart) {
-            pieChart = new Chart(document.getElementById('statusPieChart'), {
-                type: 'pie',
-                data: {
-                    labels,
-                    datasets: [{ data, backgroundColor: colors }]
-                },
-                options: {
-                    plugins: {
-                        legend: { display: true, position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted') } }
-                    }
-                }
-            });
-        } else {
-            pieChart.data.datasets[0].data = data;
-            pieChart.update();
-        }
-        let html = '';
-        [win, lose, pending].forEach((n,i) => {
-            const pct = total ? (n/total*100).toFixed(1) : '0.0';
-            html += `<span style="color:${colors[i]};font-weight:600;">${labels[i]}</span> : ${pct}% (${n})<br>`;
-        });
-        pieStats.innerHTML = html;
-    }
-
-    function renderSportPieChart() {
-        // Compter les occurrences par sport
-        const sportCounts = {};
-        dataRows.forEach(r => {
-            const sport = r[0] || "Inconnu";
-            sportCounts[sport] = (sportCounts[sport] || 0) + 1;
-        });
-        const labels = Object.keys(sportCounts);
-        const data = Object.values(sportCounts);
-        const total = data.reduce((a, b) => a + b, 0);
-        const colors = [
-            "#22c55e", "#ef4444", "#a259e6", "#f59e42", "#3b82f6", "#eab308", "#10b981", "#6366f1"
-        ];
-        if (!sportPieChart) {
-            sportPieChart = new Chart(document.getElementById('sportPieChart'), {
-                type: 'pie',
-                data: {
-                    labels,
-                    datasets: [{
-                        data,
-                        backgroundColor: colors.slice(0, labels.length)
-                    }]
-                },
-                options: {
-                    plugins: {
-                        legend: { display: true, position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted') } }
-                    }
-                }
-            });
-        } else {
-            sportPieChart.data.labels = labels;
-            sportPieChart.data.datasets[0].data = data;
-            sportPieChart.update();
-        }
-        // Affichage des stats
-        let html = '';
-        labels.forEach((sport, i) => {
-            const pct = total ? (data[i] / total * 100).toFixed(1) : '0.0';
-            html += `<span style="color:${colors[i % colors.length]};font-weight:600;">${sport}</span> : ${pct}% (${data[i]})<br>`;
-        });
-        sportPieStats.innerHTML = html;
-    }
-
-    function renderStats(mult) {
-        const first = parseDate(dataRows[0][2]); // Date prise de paris
-        const last = parseDate(dataRows[dataRows.length-1][2]); // Date de l'évènement
-        const start = baseBankroll * mult;
-        const end = parseFloat(dataRows[dataRows.length-1][11].replace(',', '.')) * mult;
-
-        const perf = end - start;
-        const pct = (end/start - 1) * 100;
-
-        const days = (last-first)/86400000;
-        const months = days / 30.4375;
-        const years = days / 365.25;
-
-        const ann = (Math.pow(end/start, 1/years)-1)*100;
-        const mon = (Math.pow(end/start, 1/months)-1)*100;
-
-        perfStats.innerHTML = `
-    <div class="stat">
-        <b>Performance</b>
-        <span style="color:${perf>=0?'var(--accent)':'red'}">
-            ${perf.toFixed(2)}€ (${pct.toFixed(2)}%)
-        </span>
-    </div>
-    <div class="stat">
-        <b>Annualisée</b>
-        ${isFinite(ann)?ann.toFixed(2):'—'} %
-    </div>
-    <div class="stat">
-        <b>Mensuelle</b>
-        ${isFinite(mon)?mon.toFixed(2):'—'} %
-    </div>
-    <div class="stat">
-        <b>Durée</b>
-        ${days.toFixed(0)} jours
-    </div>
-    `;
-    }
-
-
-    /* ========= THEME ========= */
-    themeToggle.onclick = () => {
+    <script>
+        const toggle = document.getElementById('themeToggle');
         const root = document.documentElement;
-        const dark = root.dataset.theme === "dark";
-        root.dataset.theme = dark ? "light" : "dark";
-        themeToggle.textContent = dark ? "🌙 Dark mode" : "☀️ Light mode";
-        chart.options = chartOptions();
-        chart.update();
-    };
 
-    function chartOptions() {
-        const s = getComputedStyle(document.documentElement);
-        return {
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { display: false },
-                y: {
-                    grid: { color: s.getPropertyValue('--grid') },
-                    ticks: { color: s.getPropertyValue('--muted') }
-                }
-            },
-            elements: {
-                line: { borderColor: s.getPropertyValue('--accent') }
-            }
+        toggle.onclick = () => {
+            const dark = root.dataset.theme === "dark";
+            root.dataset.theme = dark ? "light" : "dark";
+            toggle.textContent = dark ? "☀️" : "🌙";
         };
-    }
-</script>
-
+    </script>
 </body>
-
 </html>
