@@ -166,6 +166,37 @@
             <div class="toggle" id="themeToggle">🌙 Dark mode</div>
         </div>
 
+        <div class="cap-controls" style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border);">
+            <div class="row">
+                <div>
+                    <label>Cap min (%)</label><br>
+                    <input type="number" id="capMinInput" value="1" min="0.5" max="50" step="0.5" style="width:80px;">
+                </div>
+                <div>
+                    <label>Cap max (%)</label><br>
+                    <input type="number" id="capMaxInput" value="50" min="1" max="100" step="0.5" style="width:80px;">
+                </div>
+                <div>
+                    <label>Pas (%)</label><br>
+                    <input type="number" id="capStepInput" value="0.5" min="0.1" max="5" step="0.1" style="width:70px;">
+                </div>
+                <div>
+                    <label>&nbsp;</label><br>
+                    <button id="calcCapBtn" style="padding:0.45rem 1rem; border-radius:10px; border:none; background:var(--accent); color:#fff; font-weight:600; cursor:pointer; font-size:0.9rem;">
+                        🎯 Calculer cap optimal
+                    </button>
+                </div>
+            </div>
+            <div id="capResult" style="margin-top:0.5rem; font-size:0.9rem; color:var(--accent); font-weight:600;"></div>
+            <div style="margin-top:0.5rem; display:flex; gap:1.5rem; align-items:center;">
+                <label style="cursor:pointer; display:flex; align-items:center; gap:0.4rem;">
+                    <input type="radio" name="capMode" value="kelly" checked> Kelly
+                </label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:0.4rem;">
+                    <input type="radio" name="capMode" value="capped"> Kelly + Cap
+                </label>
+            </div>
+        </div>
         <div class="stats" id="perfStats"></div>
     </div>
 
@@ -230,6 +261,8 @@
     let chart, dataRows = [], pieChart, sportPieChart;
     let sortCol = null, sortDir = 1; // 1 = desc, -1 = asc
     let filters = {};
+    let optimalCap = null;
+    let capMode = 'kelly';
 
     const parseDate = s => {
         const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
@@ -261,6 +294,8 @@
             options: chartOptions()
         });
         bankrollInput.addEventListener("input", update);
+        calcCapBtn.addEventListener("click", calcOptimalCap);
+        document.querySelectorAll('input[name="capMode"]').forEach(r => r.addEventListener("change", update));
         // Ajout listeners tri
         betsTable.querySelectorAll('thead th[data-col]').forEach(th => {
             th.style.cursor = 'pointer';
@@ -283,9 +318,10 @@
 
     function update() {
         const mult = bankrollInput.value / baseBankroll;
-        renderTable(mult);
+        const { bankrolls, indices } = renderTable(mult);
         renderStats(mult);
         renderSportPieChart();
+        renderCapChart(mult, bankrolls, indices);
     }
 
     function renderTable(mult) {
@@ -312,8 +348,10 @@
             });
         }
         let bankrolls = [];
+        let indices = [];
         let winCount = 0, loseCount = 0, pendingCount = 0;
         rows.forEach(r => {
+            indices.push(dataRows.indexOf(r));
             const eventDate = r[3];
             const gagne = (r[10] || "").toLowerCase();
             let gagneLabel = "pending", gagneColor = "#a259e6";
@@ -338,11 +376,8 @@
         </tr>
         `);
         });
-        chart.data.labels = bankrolls.map((_,i)=>i+1);
-        chart.data.datasets[0].data = bankrolls;
-        chart.update();
-
         renderPieChart(winCount, loseCount, pendingCount);
+        return { bankrolls, indices };
     }
 
 
@@ -464,9 +499,133 @@
         const dark = root.dataset.theme === "dark";
         root.dataset.theme = dark ? "light" : "dark";
         themeToggle.textContent = dark ? "🌙 Dark mode" : "☀️ Light mode";
-        chart.options = chartOptions();
-        chart.update();
+        update();
     };
+
+    function calcOptimalCap() {
+        const min = +capMinInput.value || 1;
+        const max = +capMaxInput.value || 50;
+        const step = +capStepInput.value || 0.5;
+        const mult = +bankrollInput.value / baseBankroll;
+
+        const bets = [];
+        let bk = baseBankroll * mult;
+        for (const r of dataRows) {
+            const result = (r[10] || "").toLowerCase();
+            if (result !== "oui" && result !== "non") continue;
+            const odds = parseFloat((r[6] || "1").replace(',', '.'));
+            const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
+            bets.push({ bankrollBefore: bk, kellyPct, odds, won: result === "oui" });
+            const stake = bk * kellyPct;
+            bk += result === "oui" ? stake * (odds - 1) : -stake;
+        }
+
+        if (bets.length === 0) {
+            capResult.textContent = "⚠️ Aucun pari résolu pour calculer le cap.";
+            return;
+        }
+
+        let bestCap = min;
+        let bestFinal = 0;
+
+        for (let cap = min; cap <= max + 1e-9; cap += step) {
+            let b = baseBankroll * mult;
+            for (const bet of bets) {
+                const cappedPct = Math.min(bet.kellyPct, cap / 100);
+                const stake = b * cappedPct;
+                b += bet.won ? stake * (bet.odds - 1) : -stake;
+            }
+            if (b > bestFinal) { bestFinal = b; bestCap = cap; }
+        }
+
+        optimalCap = Math.round(bestCap * 10) / 10;
+        const start = baseBankroll * mult;
+        const gainPct = ((bestFinal / start) - 1) * 100;
+
+        capResult.innerHTML = `
+            → Cap optimal : <strong>${optimalCap.toFixed(1)}%</strong>
+            &nbsp;·&nbsp; Bankroll finale : <strong>${bestFinal.toFixed(2)}€</strong>
+            (${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%)
+        `;
+
+        document.querySelector('input[name="capMode"][value="capped"]').checked = true;
+        capMode = 'capped';
+        update();
+    }
+
+    function simulateWithCap(cap, mult, rows) {
+        const path = [];
+        let bk = baseBankroll * mult;
+        for (const r of rows) {
+            const result = (r[10] || "").toLowerCase();
+            const odds = parseFloat((r[6] || "1").replace(',', '.'));
+            const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
+            const cappedPct = Math.min(kellyPct, cap / 100);
+            const stake = bk * cappedPct;
+            if (result === "oui") {
+                bk += stake * (odds - 1);
+            } else if (result === "non") {
+                bk -= stake;
+            }
+            path.push(bk);
+        }
+        return path;
+    }
+
+    function renderCapChart(mult, originalBankrolls, filteredIndices) {
+        const mode = document.querySelector('input[name="capMode"]:checked').value;
+        capMode = mode;
+
+        const s = getComputedStyle(document.documentElement);
+        const accent = s.getPropertyValue('--accent');
+        const labels = originalBankrolls.map((_, i) => i + 1);
+
+        const datasets = [{
+            data: originalBankrolls,
+            borderWidth: 2,
+            tension: 0.35,
+            pointRadius: 0,
+            label: 'Kelly',
+            borderColor: accent,
+            order: 0,
+        }];
+
+        if (mode === 'capped' && optimalCap !== null) {
+            const fullPath = simulateWithCap(optimalCap, mult, dataRows);
+            const capped = filteredIndices.map(i => fullPath[i]);
+            datasets.push({
+                data: capped,
+                borderWidth: 2,
+                tension: 0.35,
+                pointRadius: 0,
+                label: `Kelly + cap ${optimalCap.toFixed(1)}%`,
+                borderColor: '#f59e42',
+                borderDash: [6, 3],
+                order: 1,
+            });
+        }
+
+        chart.data.labels = labels;
+        chart.data.datasets = datasets;
+
+        const opts = chartOptions();
+        if (mode === 'capped' && optimalCap !== null) {
+            opts.plugins.legend = {
+                display: true,
+                position: 'bottom',
+                labels: {
+                    color: s.getPropertyValue('--muted'),
+                    boxWidth: 18,
+                    padding: 14,
+                    font: { size: 11 },
+                    usePointStyle: true,
+                    pointStyle: 'line',
+                }
+            };
+        }
+        chart.options = opts;
+        chart.update();
+    }
 
     function chartOptions() {
         const s = getComputedStyle(document.documentElement);
@@ -479,9 +638,6 @@
                     grid: { color: s.getPropertyValue('--grid') },
                     ticks: { color: s.getPropertyValue('--muted') }
                 }
-            },
-            elements: {
-                line: { borderColor: s.getPropertyValue('--accent') }
             }
         };
     }
