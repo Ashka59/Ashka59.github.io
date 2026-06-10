@@ -170,20 +170,20 @@
             <div class="row">
                 <div>
                     <label>Cap min (%)</label><br>
-                    <input type="number" id="capMinInput" value="1" min="0.5" max="50" step="0.5" style="width:80px;">
+                    <input type="number" id="capMinInput" value="0.01" min="0.01" max="50" step="0.01" style="width:80px;">
                 </div>
                 <div>
                     <label>Cap max (%)</label><br>
-                    <input type="number" id="capMaxInput" value="50" min="1" max="100" step="0.5" style="width:80px;">
+                    <input type="number" id="capMaxInput" value="10" min="0.01" max="100" step="0.01" style="width:80px;">
                 </div>
                 <div>
                     <label>Pas (%)</label><br>
-                    <input type="number" id="capStepInput" value="0.5" min="0.1" max="5" step="0.1" style="width:70px;">
+                    <input type="number" id="capStepInput" value="0.01" min="0.001" max="5" step="0.001" style="width:70px;">
                 </div>
                 <div>
                     <label>&nbsp;</label><br>
                     <button id="calcCapBtn" style="padding:0.45rem 1rem; border-radius:10px; border:none; background:var(--accent); color:#fff; font-weight:600; cursor:pointer; font-size:0.9rem;">
-                        🎯 Calculer cap optimal
+                        🎯 Optimiser
                     </button>
                 </div>
             </div>
@@ -195,9 +195,13 @@
                 <label style="cursor:pointer; display:flex; align-items:center; gap:0.4rem;">
                     <input type="radio" name="capMode" value="capped"> Kelly + Cap
                 </label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:0.4rem;">
+                    <input type="radio" name="capMode" value="flat"> Mise fixe
+                </label>
             </div>
         </div>
         <div class="stats" id="perfStats"></div>
+        <div class="stats" id="cappedStats" style="margin-top:0.5rem;"></div>
     </div>
 
     <div class="card">
@@ -262,6 +266,7 @@
     let sortCol = null, sortDir = 1; // 1 = desc, -1 = asc
     let filters = {};
     let optimalCap = null;
+    let optimalFlat = null;
     let capMode = 'kelly';
 
     const parseDate = s => {
@@ -294,7 +299,7 @@
             options: chartOptions()
         });
         bankrollInput.addEventListener("input", update);
-        calcCapBtn.addEventListener("click", calcOptimalCap);
+        calcCapBtn.addEventListener("click", calcAndOptimize);
         document.querySelectorAll('input[name="capMode"]').forEach(r => r.addEventListener("change", update));
         // Ajout listeners tri
         betsTable.querySelectorAll('thead th[data-col]').forEach(th => {
@@ -322,6 +327,7 @@
         renderStats(mult);
         renderSportPieChart();
         renderCapChart(mult, bankrolls, indices);
+        renderAltStats(mult);
     }
 
     function renderTable(mult) {
@@ -502,28 +508,51 @@
         update();
     };
 
-    function calcOptimalCap() {
-        const min = +capMinInput.value || 1;
-        const max = +capMaxInput.value || 50;
-        const step = +capStepInput.value || 0.5;
+    function calcAndOptimize() {
+        const min = +capMinInput.value || 0.01;
+        const max = +capMaxInput.value || 10;
+        const step = +capStepInput.value || 0.01;
+
+        calcOptimalCap(min, max, step);
+        calcOptimalFlat(min, max, step);
+        renderOptimizationResult();
+        document.querySelector('input[name="capMode"][value="capped"]').checked = true;
+        capMode = 'capped';
+        update();
+    }
+
+    function renderOptimizationResult() {
+        const mult = +bankrollInput.value / baseBankroll;
+        const start = baseBankroll * mult;
+        let html = '';
+        if (optimalCap !== null) {
+            const finalCap = simulateAlt(mult, dataRows, 'capped');
+            const end = finalCap.length > 0 ? finalCap[finalCap.length - 1] : start;
+            const gainPct = ((end / start) - 1) * 100;
+            html += `→ Kelly + cap : <strong>${optimalCap.toFixed(2)}%</strong> · ${end.toFixed(2)}€ (${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%)`;
+        }
+        if (optimalFlat !== null) {
+            const finalFlat = simulateAlt(mult, dataRows, 'flat');
+            const end = finalFlat.length > 0 ? finalFlat[finalFlat.length - 1] : start;
+            const gainPct = ((end / start) - 1) * 100;
+            html += (html ? '<br>' : '') + `→ Mise fixe : <strong>${optimalFlat.toFixed(2)}%</strong> · ${end.toFixed(2)}€ (${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%)`;
+        }
+        capResult.innerHTML = html || 'Cliquez sur Optimiser pour calculer';
+    }
+
+    function calcOptimalCap(min, max, step) {
         const mult = +bankrollInput.value / baseBankroll;
 
         const bets = [];
-        let bk = baseBankroll * mult;
         for (const r of dataRows) {
             const result = (r[10] || "").toLowerCase();
             if (result !== "oui" && result !== "non") continue;
             const odds = parseFloat((r[6] || "1").replace(',', '.'));
             const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-            bets.push({ bankrollBefore: bk, kellyPct, odds, won: result === "oui" });
-            const stake = bk * kellyPct;
-            bk += result === "oui" ? stake * (odds - 1) : -stake;
+            bets.push({ kellyPct, odds, won: result === "oui" });
         }
 
-        if (bets.length === 0) {
-            capResult.textContent = "⚠️ Aucun pari résolu pour calculer le cap.";
-            return;
-        }
+        if (bets.length === 0) return;
 
         let bestCap = min;
         let bestFinal = 0;
@@ -538,30 +567,52 @@
             if (b > bestFinal) { bestFinal = b; bestCap = cap; }
         }
 
-        optimalCap = Math.round(bestCap * 10) / 10;
-        const start = baseBankroll * mult;
-        const gainPct = ((bestFinal / start) - 1) * 100;
-
-        capResult.innerHTML = `
-            → Cap optimal : <strong>${optimalCap.toFixed(1)}%</strong>
-            &nbsp;·&nbsp; Bankroll finale : <strong>${bestFinal.toFixed(2)}€</strong>
-            (${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%)
-        `;
-
-        document.querySelector('input[name="capMode"][value="capped"]').checked = true;
-        capMode = 'capped';
-        update();
+        optimalCap = Math.round(bestCap * 100) / 100;
     }
 
-    function simulateWithCap(cap, mult, rows) {
+    function calcOptimalFlat(min, max, step) {
+        const mult = +bankrollInput.value / baseBankroll;
+
+        const bets = [];
+        for (const r of dataRows) {
+            const result = (r[10] || "").toLowerCase();
+            if (result !== "oui" && result !== "non") continue;
+            const odds = parseFloat((r[6] || "1").replace(',', '.'));
+            bets.push({ odds, won: result === "oui" });
+        }
+
+        if (bets.length === 0) return;
+
+        let bestPct = min;
+        let bestFinal = 0;
+
+        for (let pct = min; pct <= max + 1e-9; pct += step) {
+            let b = baseBankroll * mult;
+            for (const bet of bets) {
+                const stake = b * (pct / 100);
+                b += bet.won ? stake * (bet.odds - 1) : -stake;
+            }
+            if (b > bestFinal) { bestFinal = b; bestPct = pct; }
+        }
+
+        optimalFlat = Math.round(bestPct * 100) / 100;
+    }
+
+    function simulateAlt(mult, rows, modeOverride) {
+        const mode = modeOverride || document.querySelector('input[name="capMode"]:checked').value;
         const path = [];
         let bk = baseBankroll * mult;
         for (const r of rows) {
             const result = (r[10] || "").toLowerCase();
             const odds = parseFloat((r[6] || "1").replace(',', '.'));
-            const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-            const cappedPct = Math.min(kellyPct, cap / 100);
-            const stake = bk * cappedPct;
+            let stake = 0;
+            if (mode === 'capped' && optimalCap !== null) {
+                const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
+                const cappedPct = Math.min(kellyPct, optimalCap / 100);
+                stake = bk * cappedPct;
+            } else if (mode === 'flat' && optimalFlat !== null) {
+                stake = bk * (optimalFlat / 100);
+            }
             if (result === "oui") {
                 bk += stake * (odds - 1);
             } else if (result === "non") {
@@ -590,15 +641,20 @@
             order: 0,
         }];
 
-        if (mode === 'capped' && optimalCap !== null) {
-            const fullPath = simulateWithCap(optimalCap, mult, dataRows);
-            const capped = filteredIndices.map(i => fullPath[i]);
+        const showAlt = (mode === 'capped' && optimalCap !== null) || (mode === 'flat' && optimalFlat !== null);
+
+        if (showAlt) {
+            const fullPath = simulateAlt(mult, dataRows);
+            const alt = filteredIndices.map(i => fullPath[i]);
+            const label = mode === 'capped'
+                ? `Kelly + cap ${optimalCap.toFixed(2)}%`
+                : `Mise fixe ${optimalFlat.toFixed(2)}%`;
             datasets.push({
-                data: capped,
+                data: alt,
                 borderWidth: 2,
                 tension: 0.35,
                 pointRadius: 0,
-                label: `Kelly + cap ${optimalCap.toFixed(1)}%`,
+                label,
                 borderColor: '#f59e42',
                 borderDash: [6, 3],
                 order: 1,
@@ -609,7 +665,7 @@
         chart.data.datasets = datasets;
 
         const opts = chartOptions();
-        if (mode === 'capped' && optimalCap !== null) {
+        if (showAlt) {
             opts.plugins.legend = {
                 display: true,
                 position: 'bottom',
@@ -625,6 +681,65 @@
         }
         chart.options = opts;
         chart.update();
+    }
+
+    function renderAltStats(mult) {
+        const mode = document.querySelector('input[name="capMode"]:checked').value;
+        const showAlt = (mode === 'capped' && optimalCap !== null) || (mode === 'flat' && optimalFlat !== null);
+
+        if (!showAlt) {
+            cappedStats.innerHTML = '';
+            return;
+        }
+
+        const fullPath = simulateAlt(mult, dataRows);
+        const end = fullPath.length > 0 ? fullPath[fullPath.length - 1] : baseBankroll * mult;
+        const start = baseBankroll * mult;
+
+        const perf = end - start;
+        const pct = (end / start - 1) * 100;
+
+        const first = parseDate(dataRows[0][2]);
+        const last = parseDate(dataRows[dataRows.length - 1][2]);
+        const days = (last - first) / 86400000;
+        const months = days / 30.4375;
+        const years = days / 365.25;
+
+        const ann = (Math.pow(end / start, 1 / years) - 1) * 100;
+        const mon = (Math.pow(end / start, 1 / months) - 1) * 100;
+
+        const label = mode === 'capped'
+            ? `Kelly + cap ${optimalCap.toFixed(2)}%`
+            : `Mise fixe ${optimalFlat.toFixed(2)}%`;
+
+        const kellyEnd = parseFloat(dataRows[dataRows.length - 1][11].replace(',', '.')) * mult;
+        const vsKelly = end - kellyEnd;
+
+        cappedStats.innerHTML = `
+    <div class="stat">
+        <b style="color:#f59e42;">${label}</b>
+    </div>
+    <div class="stat">
+        <b>Performance</b>
+        <span style="color:${perf>=0?'var(--accent)':'red'}">
+            ${perf.toFixed(2)}€ (${pct.toFixed(2)}%)
+        </span>
+    </div>
+    <div class="stat">
+        <b>Annualized</b>
+        ${isFinite(ann)?ann.toFixed(2):'—'} %
+    </div>
+    <div class="stat">
+        <b>Monthly</b>
+        ${isFinite(mon)?mon.toFixed(2):'—'} %
+    </div>
+    <div class="stat">
+        <b>vs Kelly</b>
+        <span style="color:${vsKelly>=0?'var(--accent)':'red'}">
+            ${vsKelly >= 0 ? '+' : ''}${vsKelly.toFixed(2)}€
+        </span>
+    </div>
+    `;
     }
 
     function chartOptions() {
