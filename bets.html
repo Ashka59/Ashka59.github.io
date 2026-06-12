@@ -495,7 +495,7 @@
             else if (optMode === 'sharpe') score = std > 0 ? mean / std : 0;
             else if (optMode === 'sortino') score = downStd > 0 ? mean / downStd : 0;
 
-            if (!best || score > best.score) {
+            if (!best || score > best.score + 1e-10 || (Math.abs(score - best.score) <= 1e-10 && b > best.final)) {
                 best = {
                     cap,
                     final: b,
@@ -551,7 +551,7 @@
             else if (optMode === 'sharpe') score = std > 0 ? mean / std : 0;
             else if (optMode === 'sortino') score = downStd > 0 ? mean / downStd : 0;
 
-            if (!best || score > best.score) {
+            if (!best || score > best.score + 1e-10 || (Math.abs(score - best.score) <= 1e-10 && b > best.final)) {
                 best = {
                     pct,
                     final: b,
