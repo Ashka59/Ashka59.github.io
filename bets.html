@@ -166,7 +166,7 @@
         .opt-table tbody tr:nth-child(1) {
             border-bottom: 2px solid var(--accent);
         }
-        .opt-table tbody tr:nth-child(4) {
+        .opt-table tbody tr:nth-child(5) {
             border-bottom: 2px solid var(--accent);
         }
 
@@ -724,6 +724,7 @@
         let html = `<div style="overflow-x:auto;"><table class="opt-table">
             <thead><tr>
                 <th>Stratégie</th>
+                <th>Mise %</th>
                 <th>Perf</th>
                 <th>Perf ann.</th>
                 <th>Perf mens.</th>
@@ -733,6 +734,7 @@
             </tr></thead><tbody>`;
 
         html += `<tr><td><b>Kelly</b></td>
+            <td>—</td>
             <td style="color:${kellyMetrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(kellyMetrics.perf, kellyMetrics.perfPct)}</td>
             <td>${formatPct(kellyMetrics.annPct)}</td>
             <td>${formatPct(kellyMetrics.monPct)}</td>
@@ -744,6 +746,7 @@
         for (const r of cappedResults) {
             const label = `Kelly+Cap (${modeLabel(r.mode)})`;
             html += `<tr><td>${label}</td>
+                <td>${r.cap.toFixed(2)}%</td>
                 <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
                 <td>${formatPct(r.metrics.annPct)}</td>
                 <td>${formatPct(r.metrics.monPct)}</td>
@@ -756,6 +759,7 @@
         for (const r of flatResults) {
             const label = `Mise fixe (${modeLabel(r.mode)})`;
             html += `<tr><td>${label}</td>
+                <td>${r.pct.toFixed(2)}%</td>
                 <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
                 <td>${formatPct(r.metrics.annPct)}</td>
                 <td>${formatPct(r.metrics.monPct)}</td>
