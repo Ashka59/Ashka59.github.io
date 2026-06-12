@@ -289,8 +289,8 @@
     let sortCol = null, sortDir = 1;
     let filters = {};
 
-    const MODES = ['return', 'calmar', 'sharpe', 'sortino'];
-    const COLORS = ['#22c55e', '#3b82f6', '#f59e42', '#ef4444', '#a259e6', '#eab308', '#10b981', '#ec4899', '#8b5cf6'];
+    const MODES = ['return', 'calmar'];
+    const COLORS = ['#22c55e', '#3b82f6', '#f59e42', '#ef4444', '#a259e6'];
 
     const parseDate = s => {
         const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
@@ -492,8 +492,6 @@
 
             let score = b;
             if (optMode === 'calmar' && maxDrawdown > 0) score = rendement / maxDrawdown;
-            else if (optMode === 'sharpe') score = std > 0 ? mean / std : 0;
-            else if (optMode === 'sortino') score = downStd > 0 ? mean / downStd : 0;
 
             if (!best || score > best.score + 1e-10 || (Math.abs(score - best.score) <= 1e-10 && b > best.final)) {
                 best = {
@@ -548,8 +546,6 @@
 
             let score = b;
             if (optMode === 'calmar' && maxDrawdown > 0) score = rendement / maxDrawdown;
-            else if (optMode === 'sharpe') score = std > 0 ? mean / std : 0;
-            else if (optMode === 'sortino') score = downStd > 0 ? mean / downStd : 0;
 
             if (!best || score > best.score + 1e-10 || (Math.abs(score - best.score) <= 1e-10 && b > best.final)) {
                 best = {
