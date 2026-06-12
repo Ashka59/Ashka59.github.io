@@ -665,6 +665,10 @@
         return val.toFixed(3);
     }
 
+    function modeLabel(mode) {
+        return mode === 'return' ? 'Rendement' : mode === 'calmar' ? 'Calmar' : mode === 'sharpe' ? 'Sharpe' : 'Sortino';
+    }
+
     function calcAndOptimize() {
         const min = +capMinInput.value || 0.01;
         const max = +capMaxInput.value || 10;
@@ -703,12 +707,12 @@
         const allPaths = [
             { label: 'Kelly', data: kellyPath, color: COLORS[0] },
             ...cappedResults.map((r, i) => ({
-                label: `Kelly+Cap ${r.mode === 'return' ? 'Rendement' : r.mode === 'calmar' ? 'Calmar' : 'Sharpe'} (${r.cap.toFixed(2)}%)`,
+                label: `Kelly+Cap ${modeLabel(r.mode)} (${r.cap.toFixed(2)}%)`,
                 data: r.path,
                 color: COLORS[i + 1]
             })),
             ...flatResults.map((r, i) => ({
-                label: `Mise fixe ${r.mode === 'return' ? 'Rendement' : r.mode === 'calmar' ? 'Calmar' : 'Sharpe'} (${r.pct.toFixed(2)}%)`,
+                label: `Mise fixe ${modeLabel(r.mode)} (${r.pct.toFixed(2)}%)`,
                 data: r.path,
                 color: COLORS[i + 4]
             }))
@@ -738,7 +742,7 @@
         </tr>`;
 
         for (const r of cappedResults) {
-            const label = `Kelly+Cap (${r.mode === 'return' ? 'Rendement' : r.mode === 'calmar' ? 'Calmar' : 'Sharpe'})`;
+            const label = `Kelly+Cap (${modeLabel(r.mode)})`;
             html += `<tr><td>${label}</td>
                 <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
                 <td>${formatPct(r.metrics.annPct)}</td>
@@ -750,7 +754,7 @@
         }
 
         for (const r of flatResults) {
-            const label = `Mise fixe (${r.mode === 'return' ? 'Rendement' : r.mode === 'calmar' ? 'Calmar' : 'Sharpe'})`;
+            const label = `Mise fixe (${modeLabel(r.mode)})`;
             html += `<tr><td>${label}</td>
                 <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
                 <td>${formatPct(r.metrics.annPct)}</td>
