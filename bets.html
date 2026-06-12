@@ -626,8 +626,13 @@
 
         const returns = [];
         let prev = start;
+        let totalProfits = 0, totalLosses = 0;
         for (const val of path) {
-            returns.push((val - prev) / prev);
+            const ret = (val - prev) / prev;
+            returns.push(ret);
+            const change = val - prev;
+            if (change > 0) totalProfits += change;
+            else totalLosses += -change;
             prev = val;
         }
         const mean = returns.reduce((s, v) => s + v, 0) / returns.length;
@@ -647,8 +652,10 @@
         const calmar = maxDrawdown > 0 ? (end - start) / maxDrawdown : 0;
         const sharpe = std > 0 ? mean / std : 0;
         const sortino = downStd > 0 ? mean / downStd : 0;
+        const profitFactor = totalLosses > 0 ? totalProfits / totalLosses : totalProfits > 0 ? Infinity : 0;
+        const expectedReturn = mean * 100;
 
-        return { perf, perfPct, annPct, monPct, calmar, sharpe, sortino };
+        return { perf, perfPct, annPct, monPct, calmar, sharpe, sortino, profitFactor, expectedReturn };
     }
 
     function formatPerf(perf, pct) {
@@ -728,6 +735,8 @@
                 <th>Perf</th>
                 <th>Perf ann.</th>
                 <th>Perf mens.</th>
+                <th>Fact. profit</th>
+                <th>Rend. attendu</th>
                 <th>Calmar</th>
                 <th>Sharpe</th>
                 <th>Sortino</th>
@@ -738,6 +747,8 @@
             <td style="color:${kellyMetrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(kellyMetrics.perf, kellyMetrics.perfPct)}</td>
             <td>${formatPct(kellyMetrics.annPct)}</td>
             <td>${formatPct(kellyMetrics.monPct)}</td>
+            <td>${isFinite(kellyMetrics.profitFactor) ? kellyMetrics.profitFactor.toFixed(3) : '∞'}</td>
+            <td>${formatPct(kellyMetrics.expectedReturn)}</td>
             <td>${formatRatio(kellyMetrics.calmar)}</td>
             <td>${formatRatio(kellyMetrics.sharpe)}</td>
             <td>${formatRatio(kellyMetrics.sortino)}</td>
@@ -750,6 +761,8 @@
                 <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
                 <td>${formatPct(r.metrics.annPct)}</td>
                 <td>${formatPct(r.metrics.monPct)}</td>
+                <td>${isFinite(r.metrics.profitFactor) ? r.metrics.profitFactor.toFixed(3) : '∞'}</td>
+                <td>${formatPct(r.metrics.expectedReturn)}</td>
                 <td>${formatRatio(r.metrics.calmar)}</td>
                 <td>${formatRatio(r.metrics.sharpe)}</td>
                 <td>${formatRatio(r.metrics.sortino)}</td>
@@ -763,6 +776,8 @@
                 <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
                 <td>${formatPct(r.metrics.annPct)}</td>
                 <td>${formatPct(r.metrics.monPct)}</td>
+                <td>${isFinite(r.metrics.profitFactor) ? r.metrics.profitFactor.toFixed(3) : '∞'}</td>
+                <td>${formatPct(r.metrics.expectedReturn)}</td>
                 <td>${formatRatio(r.metrics.calmar)}</td>
                 <td>${formatRatio(r.metrics.sharpe)}</td>
                 <td>${formatRatio(r.metrics.sortino)}</td>
