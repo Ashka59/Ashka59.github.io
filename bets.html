@@ -208,6 +208,14 @@
                     <input type="radio" name="capMode" value="flat"> Mise fixe
                 </label>
             </div>
+            <div style="margin-top:0.5rem; display:flex; gap:1.5rem; align-items:center;">
+                <label style="cursor:pointer; display:flex; align-items:center; gap:0.4rem;">
+                    <input type="radio" name="optMode" value="return" checked> Rendement max
+                </label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:0.4rem;">
+                    <input type="radio" name="optMode" value="ratio"> Ratio rend./drawdown
+                </label>
+            </div>
         </div>
         <div class="stats" id="perfStats"></div>
         <div class="stats" id="cappedStats" style="margin-top:0.5rem;"></div>
@@ -276,6 +284,8 @@
     let filters = {};
     let optimalCap = null;
     let optimalFlat = null;
+    let optimalCapDD = 0;
+    let optimalFlatDD = 0;
     let capMode = 'kelly';
 
     const parseDate = s => {
@@ -310,6 +320,7 @@
         bankrollInput.addEventListener("input", update);
         calcCapBtn.addEventListener("click", calcAndOptimize);
         document.querySelectorAll('input[name="capMode"]').forEach(r => r.addEventListener("change", update));
+        document.querySelectorAll('input[name="optMode"]').forEach(r => r.addEventListener("change", calcAndOptimize));
         // Ajout listeners tri
         betsTable.querySelectorAll('thead th[data-col]').forEach(th => {
             th.style.cursor = 'pointer';
@@ -538,19 +549,20 @@
             const finalCap = simulateAlt(mult, dataRows, 'capped');
             const end = finalCap.length > 0 ? finalCap[finalCap.length - 1] : start;
             const gainPct = ((end / start) - 1) * 100;
-            html += `→ Kelly + cap : <strong>${optimalCap.toFixed(2)}%</strong> · ${end.toFixed(2)}€ (${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%)`;
+            html += `→ Kelly + cap : <strong>${optimalCap.toFixed(2)}%</strong> · ${end.toFixed(2)}€ (${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%) · drawdown max ${(optimalCapDD * 100).toFixed(2)}%`;
         }
         if (optimalFlat !== null) {
             const finalFlat = simulateAlt(mult, dataRows, 'flat');
             const end = finalFlat.length > 0 ? finalFlat[finalFlat.length - 1] : start;
             const gainPct = ((end / start) - 1) * 100;
-            html += (html ? '<br>' : '') + `→ Mise fixe : <strong>${optimalFlat.toFixed(2)}%</strong> · ${end.toFixed(2)}€ (${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%)`;
+            html += (html ? '<br>' : '') + `→ Mise fixe : <strong>${optimalFlat.toFixed(2)}%</strong> · ${end.toFixed(2)}€ (${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%) · drawdown max ${(optimalFlatDD * 100).toFixed(2)}%`;
         }
         capResult.innerHTML = html || 'Cliquez sur Optimiser pour calculer';
     }
 
     function calcOptimalCap(min, max, step) {
         const mult = +bankrollInput.value / baseBankroll;
+        const optMode = document.querySelector('input[name="optMode"]:checked').value;
 
         const bets = [];
         for (const r of dataRows) {
@@ -563,24 +575,38 @@
 
         if (bets.length === 0) return;
 
+        const start = baseBankroll * mult;
         let bestCap = min;
+        let bestScore = -Infinity;
         let bestFinal = 0;
+        let bestDD = 0;
 
         for (let cap = min; cap <= max + 1e-9; cap += step) {
-            let b = baseBankroll * mult;
+            let b = start;
+            let peak = b;
+            let maxDrawdown = 0;
             for (const bet of bets) {
                 const cappedPct = Math.min(bet.kellyPct, cap / 100);
                 const stake = b * cappedPct;
                 b += bet.won ? stake * (bet.odds - 1) : -stake;
+                if (b > peak) peak = b;
+                const dd = peak > 0 ? (peak - b) / peak : 0;
+                if (dd > maxDrawdown) maxDrawdown = dd;
             }
-            if (b > bestFinal) { bestFinal = b; bestCap = cap; }
+            const rendement = b - start;
+            const score = (optMode === 'ratio' && maxDrawdown > 0)
+                ? rendement / maxDrawdown
+                : b;
+            if (score > bestScore) { bestScore = score; bestFinal = b; bestCap = cap; bestDD = maxDrawdown; }
         }
 
         optimalCap = Math.round(bestCap * 100) / 100;
+        optimalCapDD = bestDD;
     }
 
     function calcOptimalFlat(min, max, step) {
         const mult = +bankrollInput.value / baseBankroll;
+        const optMode = document.querySelector('input[name="optMode"]:checked').value;
 
         const bets = [];
         for (const r of dataRows) {
@@ -592,19 +618,32 @@
 
         if (bets.length === 0) return;
 
+        const start = baseBankroll * mult;
         let bestPct = min;
+        let bestScore = -Infinity;
         let bestFinal = 0;
+        let bestDD = 0;
 
         for (let pct = min; pct <= max + 1e-9; pct += step) {
-            let b = baseBankroll * mult;
+            let b = start;
+            let peak = b;
+            let maxDrawdown = 0;
             for (const bet of bets) {
                 const stake = b * (pct / 100);
                 b += bet.won ? stake * (bet.odds - 1) : -stake;
+                if (b > peak) peak = b;
+                const dd = peak > 0 ? (peak - b) / peak : 0;
+                if (dd > maxDrawdown) maxDrawdown = dd;
             }
-            if (b > bestFinal) { bestFinal = b; bestPct = pct; }
+            const rendement = b - start;
+            const score = (optMode === 'ratio' && maxDrawdown > 0)
+                ? rendement / maxDrawdown
+                : b;
+            if (score > bestScore) { bestScore = score; bestFinal = b; bestPct = pct; bestDD = maxDrawdown; }
         }
 
         optimalFlat = Math.round(bestPct * 100) / 100;
+        optimalFlatDD = bestDD;
     }
 
     function simulateAlt(mult, rows, modeOverride) {
