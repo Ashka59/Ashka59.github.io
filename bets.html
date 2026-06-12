@@ -166,7 +166,13 @@
         .opt-table tbody tr:nth-child(1) {
             border-bottom: 2px solid var(--accent);
         }
+        .opt-table tbody tr:nth-child(3) {
+            border-bottom: 2px solid var(--accent);
+        }
         .opt-table tbody tr:nth-child(5) {
+            border-bottom: 2px solid var(--accent);
+        }
+        .opt-table tbody tr:nth-child(7) {
             border-bottom: 2px solid var(--accent);
         }
 
@@ -282,7 +288,7 @@
     let filters = {};
 
     const MODES = ['return', 'calmar'];
-    const COLORS = ['#22c55e', '#eab308', '#06b6d4', '#ef4444', '#a855f7'];
+    const COLORS = ['#22c55e', '#eab308', '#06b6d4', '#ef4444', '#a855f7', '#f97316', '#3b82f6'];
 
     const parseDate = s => {
         const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
@@ -716,7 +722,14 @@
             flatResults.push({ mode, pct: opt.pct, path, metrics });
         }
 
-        renderOptimTable(kellyMetrics, cappedResults, flatResults);
+        const hybridResults = [];
+        for (const r of flatResults) {
+            const path = simulateCapped(mult, dataRows, r.pct);
+            const metrics = calcMetrics(path, start, days);
+            hybridResults.push({ mode: r.mode, pct: r.pct, path, metrics });
+        }
+
+        renderOptimTable(kellyMetrics, cappedResults, flatResults, hybridResults);
 
         const allPaths = [
             { label: 'Kelly', data: kellyPath, color: COLORS[0] },
@@ -729,12 +742,17 @@
                 label: `Mise fixe ${modeLabel(r.mode)} (${r.pct.toFixed(2)}%)`,
                 data: r.path,
                 color: COLORS[i + 3]
+            })),
+            ...hybridResults.map((r, i) => ({
+                label: `Kelly+Cap+Mise ${modeLabel(r.mode)} (${r.pct.toFixed(2)}%)`,
+                data: r.path,
+                color: COLORS[i + 5]
             }))
         ];
         renderCapChart(allPaths);
     }
 
-    function renderOptimTable(kellyMetrics, cappedResults, flatResults) {
+    function renderOptimTable(kellyMetrics, cappedResults, flatResults, hybridResults) {
         let html = `<div style="overflow-x:auto;"><table class="opt-table">
             <thead><tr>
                 <th>Stratégie</th>
@@ -795,6 +813,22 @@
             </tr>`;
         }
 
+        for (const r of hybridResults) {
+            const label = `Kelly+Cap+Mise (${modeLabel(r.mode)})`;
+            html += `<tr><td>${label}</td>
+                <td>${r.pct.toFixed(2)}%</td>
+                <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
+                <td>${formatPct(r.metrics.annPct)}</td>
+                <td>${formatPct(r.metrics.monPct)}</td>
+                <td>${isFinite(r.metrics.profitFactor) ? r.metrics.profitFactor.toFixed(3) : '∞'}</td>
+                <td>${formatPct(r.metrics.expectedReturn)}</td>
+                <td style="color:#ef4444">${formatPct(-r.metrics.maxDrawdown)}</td>
+                <td>${formatRatio(r.metrics.calmar)}</td>
+                <td>${formatRatio(r.metrics.sharpe)}</td>
+                <td>${formatRatio(r.metrics.sortino)}</td>
+            </tr>`;
+        }
+
         html += '</tbody></table></div>';
         optimTable.innerHTML = html;
     }
@@ -804,7 +838,7 @@
         const labels = allPaths[0]?.data.map((_, i) => i + 1) || [];
 
         chart.data.labels = labels;
-        const dashes = [[], [4, 3], [2, 3], [8, 4], [6, 3, 2, 3]];
+        const dashes = [[], [4, 3], [2, 3], [8, 4], [6, 3, 2, 3], [4, 2, 1, 2], [10, 3, 2, 3]];
         chart.data.datasets = allPaths.map((p, i) => ({
             data: p.data,
             borderWidth: 2,
