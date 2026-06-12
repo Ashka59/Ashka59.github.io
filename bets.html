@@ -204,16 +204,8 @@
         <div class="cap-controls" style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border);">
             <div class="row">
                 <div>
-                    <label>Cap min (%)</label><br>
-                    <input type="number" id="capMinInput" value="0.01" min="0.01" max="50" step="0.01" style="width:80px;">
-                </div>
-                <div>
-                    <label>Cap max (%)</label><br>
-                    <input type="number" id="capMaxInput" value="10" min="0.01" max="100" step="0.01" style="width:80px;">
-                </div>
-                <div>
-                    <label>Pas (%)</label><br>
-                    <input type="number" id="capStepInput" value="0.01" min="0.001" max="5" step="0.001" style="width:70px;">
+                    <label>Chute max (%)</label><br>
+                    <input type="number" id="maxDrawdownInput" value="100" min="1" max="100" step="1" style="width:80px;">
                 </div>
                 <div>
                     <label>&nbsp;</label><br>
@@ -290,7 +282,7 @@
     let filters = {};
 
     const MODES = ['return', 'calmar'];
-    const COLORS = ['#22c55e', '#3b82f6', '#f59e42', '#ef4444', '#a259e6'];
+    const COLORS = ['#22c55e', '#3b82f6', '#f59e42', '#ef4444', '#06b6d4'];
 
     const parseDate = s => {
         const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
@@ -453,7 +445,7 @@
 
     /* ========= OPTIMIZATION ========= */
 
-    function calcOptimalCap(min, max, step, optMode) {
+    function calcOptimalCap(min, max, step, optMode, maxDD) {
         const mult = +bankrollInput.value / baseBankroll;
         const bets = [];
         for (const r of dataRows) {
@@ -467,6 +459,7 @@
 
         const start = baseBankroll * mult;
         let best = null;
+        let fallback = null;
 
         for (let cap = min; cap <= max + 1e-9; cap += step) {
             let b = start;
@@ -490,26 +483,35 @@
             const negVariance = returns.reduce((s, v) => s + (v < 0 ? v * v : 0), 0) / returns.length;
             const downStd = Math.sqrt(negVariance);
 
+            if (!fallback || maxDrawdown < fallback.dd) {
+                fallback = {
+                    cap, final: b, dd: maxDrawdown,
+                    sharpe: std > 0 ? mean / std : 0,
+                    sortino: downStd > 0 ? mean / downStd : 0,
+                    calmar: maxDrawdown > 0 ? rendement / maxDrawdown : 0,
+                    score: b, rendement
+                };
+            }
+
+            if (maxDrawdown > maxDD) continue;
+
             let score = b;
             if (optMode === 'calmar' && maxDrawdown > 0) score = rendement / maxDrawdown;
 
             if (!best || score > best.score + 1e-10 || (Math.abs(score - best.score) <= 1e-10 && b > best.final)) {
                 best = {
-                    cap,
-                    final: b,
-                    dd: maxDrawdown,
+                    cap, final: b, dd: maxDrawdown,
                     sharpe: std > 0 ? mean / std : 0,
                     sortino: downStd > 0 ? mean / downStd : 0,
                     calmar: maxDrawdown > 0 ? rendement / maxDrawdown : 0,
-                    score,
-                    rendement
+                    score, rendement
                 };
             }
         }
-        return best;
+        return best || fallback;
     }
 
-    function calcOptimalFlat(min, max, step, optMode) {
+    function calcOptimalFlat(min, max, step, optMode, maxDD) {
         const mult = +bankrollInput.value / baseBankroll;
         const bets = [];
         for (const r of dataRows) {
@@ -522,6 +524,7 @@
 
         const start = baseBankroll * mult;
         let best = null;
+        let fallback = null;
 
         for (let pct = min; pct <= max + 1e-9; pct += step) {
             let b = start;
@@ -544,23 +547,32 @@
             const negVariance = returns.reduce((s, v) => s + (v < 0 ? v * v : 0), 0) / returns.length;
             const downStd = Math.sqrt(negVariance);
 
+            if (!fallback || maxDrawdown < fallback.dd) {
+                fallback = {
+                    pct, final: b, dd: maxDrawdown,
+                    sharpe: std > 0 ? mean / std : 0,
+                    sortino: downStd > 0 ? mean / downStd : 0,
+                    calmar: maxDrawdown > 0 ? rendement / maxDrawdown : 0,
+                    score: b, rendement
+                };
+            }
+
+            if (maxDrawdown > maxDD) continue;
+
             let score = b;
             if (optMode === 'calmar' && maxDrawdown > 0) score = rendement / maxDrawdown;
 
             if (!best || score > best.score + 1e-10 || (Math.abs(score - best.score) <= 1e-10 && b > best.final)) {
                 best = {
-                    pct,
-                    final: b,
-                    dd: maxDrawdown,
+                    pct, final: b, dd: maxDrawdown,
                     sharpe: std > 0 ? mean / std : 0,
                     sortino: downStd > 0 ? mean / downStd : 0,
                     calmar: maxDrawdown > 0 ? rendement / maxDrawdown : 0,
-                    score,
-                    rendement
+                    score, rendement
                 };
             }
         }
-        return best;
+        return best || fallback;
     }
 
     function simulateKelly(mult, rows) {
@@ -673,9 +685,8 @@
     }
 
     function calcAndOptimize() {
-        const min = +capMinInput.value || 0.01;
-        const max = +capMaxInput.value || 10;
-        const step = +capStepInput.value || 0.01;
+        const min = 0.01, max = 100, step = 0.01;
+        const maxDD = (+maxDrawdownInput.value || 100) / 100;
         const mult = +bankrollInput.value / baseBankroll;
         const start = baseBankroll * mult;
 
@@ -689,7 +700,7 @@
 
         const cappedResults = [];
         for (const mode of MODES) {
-            const opt = calcOptimalCap(min, max, step, mode);
+            const opt = calcOptimalCap(min, max, step, mode, maxDD);
             if (!opt) continue;
             const path = simulateCapped(mult, dataRows, opt.cap);
             const metrics = calcMetrics(path, start, days);
@@ -698,7 +709,7 @@
 
         const flatResults = [];
         for (const mode of MODES) {
-            const opt = calcOptimalFlat(min, max, step, mode);
+            const opt = calcOptimalFlat(min, max, step, mode, maxDD);
             if (!opt) continue;
             const path = simulateFlat(mult, dataRows, opt.pct);
             const metrics = calcMetrics(path, start, days);
@@ -793,6 +804,7 @@
         const labels = allPaths[0]?.data.map((_, i) => i + 1) || [];
 
         chart.data.labels = labels;
+        const dashes = [[], [4, 3], [2, 3], [8, 4], [6, 3, 2, 3]];
         chart.data.datasets = allPaths.map((p, i) => ({
             data: p.data,
             borderWidth: 2,
@@ -800,7 +812,7 @@
             pointRadius: 0,
             label: p.label,
             borderColor: p.color,
-            borderDash: i === 0 ? [] : [6, 3],
+            borderDash: dashes[i % dashes.length],
         }));
 
         const opts = chartOptions();
