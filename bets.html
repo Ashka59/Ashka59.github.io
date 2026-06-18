@@ -302,25 +302,37 @@
     };
 
     function computeDisplayBankrolls(rows, mult) {
-        const sorted = rows.map((r, i) => ({ i, d: parseDate(r[3]), r }))
-            .sort((a, b) => {
-                if (!a.d && !b.d) return 0;
-                if (!a.d) return 1; if (!b.d) return -1;
-                return a.d - b.d;
-            });
-        const out = new Array(rows.length);
-        let bk = baseBankroll * mult;
-        for (const { i, r } of sorted) {
+        const events = [];
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const placeDate = parseDate(r[2]) || parseDate(r[3]);
+            if (!placeDate) continue;
             const result = (r[10] || "").toLowerCase();
-            const odds = parseFloat((r[6] || "1").replace(',', '.'));
-            const boosted = isZeroStake(r[7]);
-            let stake = 0;
-            if (boosted) stake = Math.min(10, bk);
-            else if (result === "oui" || result === "non") stake = bk * (parseFloat((r[7] || "0").replace(',', '.')) / 100);
-            const bkAvail = bk - stake;
-            if (result === "oui") bk = bkAvail + stake * odds;
-            else if (result === "non") bk = bkAvail;
-            out[i] = bkAvail;
+            events.push({ d: placeDate, t: 0, i, r });
+            if (result === "oui" || result === "non") {
+                const evDate = parseDate(r[3]);
+                const resDate = evDate && evDate >= placeDate ? evDate : placeDate;
+                events.push({ d: resDate, t: 1, i, r });
+            }
+        }
+        events.sort((a, b) => {
+            const d = a.d - b.d;
+            return d !== 0 ? d : a.t !== b.t ? a.t - b.t : a.i - b.i;
+        });
+        const out = new Array(rows.length);
+        const stakes = new Array(rows.length);
+        let bk = baseBankroll * mult;
+        for (const ev of events) {
+            if (ev.t === 0) {
+                const boosted = isZeroStake(ev.r[7]);
+                const stake = boosted ? Math.min(10, bk) : bk * (parseFloat((ev.r[7] || "0").replace(',', '.')) / 100);
+                stakes[ev.i] = stake;
+                bk -= stake;
+            } else {
+                const result = (ev.r[10] || "").toLowerCase();
+                if (result === "oui") bk += stakes[ev.i] * parseFloat((ev.r[6] || "1").replace(',', '.'));
+            }
+            out[ev.i] = bk;
         }
         return out;
     }
