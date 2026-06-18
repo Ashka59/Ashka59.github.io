@@ -510,7 +510,7 @@
 
     function calcOptimalCap(min, max, step, optMode, maxDD) {
         const mult = +bankrollInput.value / baseBankroll;
-        const events = buildEvents(dataRows).filter(ev => ev.result === "oui" || ev.result === "non");
+        const events = buildEvents(dataRows);
         if (events.length === 0) return null;
 
         const start = baseBankroll * mult;
@@ -575,7 +575,7 @@
 
     function calcOptimalFlat(min, max, step, optMode, maxDD) {
         const mult = +bankrollInput.value / baseBankroll;
-        const events = buildEvents(dataRows).filter(ev => ev.result === "oui" || ev.result === "non");
+        const events = buildEvents(dataRows);
         if (events.length === 0) return null;
 
         const start = baseBankroll * mult;
@@ -645,7 +645,6 @@
         let bk = baseBankroll * mult;
         for (const ev of events) {
             if (ev.t === 0) {
-                if (ev.result !== "oui" && ev.result !== "non") { path.push(bk); continue; }
                 const stake = ev.isBoosted ? Math.min(10, bk) : bk * ev.kellyPct;
                 stakes[ev.i] = stake;
                 bk -= stake;
@@ -664,7 +663,6 @@
         let bk = baseBankroll * mult;
         for (const ev of events) {
             if (ev.t === 0) {
-                if (ev.result !== "oui" && ev.result !== "non") { path.push(bk); continue; }
                 const stake = ev.isBoosted ? Math.min(10, bk) : bk * Math.min(ev.kellyPct, capPct / 100);
                 stakes[ev.i] = stake;
                 bk -= stake;
@@ -683,7 +681,6 @@
         let bk = baseBankroll * mult;
         for (const ev of events) {
             if (ev.t === 0) {
-                if (ev.result !== "oui" && ev.result !== "non") { path.push(bk); continue; }
                 const stake = ev.isBoosted ? Math.min(10, bk) : bk * (flatPct / 100);
                 stakes[ev.i] = stake;
                 bk -= stake;
