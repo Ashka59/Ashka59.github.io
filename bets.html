@@ -301,36 +301,42 @@
         return v !== "" && parseFloat(v) === 0;
     };
 
-    function computeDisplayBankrolls(rows, mult) {
+    function buildEvents(rows) {
         const events = [];
         for (let i = 0; i < rows.length; i++) {
             const r = rows[i];
             const placeDate = parseDate(r[2]) || parseDate(r[3]);
             if (!placeDate) continue;
             const result = (r[10] || "").toLowerCase();
-            events.push({ d: placeDate, t: 0, i, r });
+            const odds = parseFloat((r[6] || "1").replace(',', '.'));
+            const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
+            const isBoosted = isZeroStake(r[7]);
+            events.push({ d: placeDate, t: 0, i, result, odds, kellyPct, isBoosted });
             if (result === "oui" || result === "non") {
                 const evDate = parseDate(r[3]);
                 const resDate = evDate && evDate >= placeDate ? evDate : placeDate;
-                events.push({ d: resDate, t: 1, i, r });
+                events.push({ d: resDate, t: 1, i, result, odds, kellyPct, isBoosted });
             }
         }
         events.sort((a, b) => {
             const d = a.d - b.d;
             return d !== 0 ? d : a.t !== b.t ? a.t - b.t : a.i - b.i;
         });
+        return events;
+    }
+
+    function computeDisplayBankrolls(rows, mult) {
+        const events = buildEvents(rows);
         const out = new Array(rows.length);
         const stakes = new Array(rows.length);
         let bk = baseBankroll * mult;
         for (const ev of events) {
             if (ev.t === 0) {
-                const boosted = isZeroStake(ev.r[7]);
-                const stake = boosted ? Math.min(10, bk) : bk * (parseFloat((ev.r[7] || "0").replace(',', '.')) / 100);
+                const stake = ev.isBoosted ? Math.min(10, bk) : bk * ev.kellyPct;
                 stakes[ev.i] = stake;
                 bk -= stake;
             } else {
-                const result = (ev.r[10] || "").toLowerCase();
-                if (result === "oui") bk += stakes[ev.i] * parseFloat((ev.r[6] || "1").replace(',', '.'));
+                if (ev.result === "oui") bk += stakes[ev.i] * ev.odds;
             }
             out[ev.i] = bk;
         }
@@ -504,16 +510,8 @@
 
     function calcOptimalCap(min, max, step, optMode, maxDD) {
         const mult = +bankrollInput.value / baseBankroll;
-        const bets = [];
-        for (const r of dataRows) {
-            const result = (r[10] || "").toLowerCase();
-            if (result !== "oui" && result !== "non") continue;
-            const odds = parseFloat((r[6] || "1").replace(',', '.'));
-            const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-            const isBoosted = isZeroStake(r[7]);
-            bets.push({ kellyPct, odds, won: result === "oui", isBoosted });
-        }
-        if (bets.length === 0) return null;
+        const events = buildEvents(dataRows).filter(ev => ev.result === "oui" || ev.result === "non");
+        if (events.length === 0) return null;
 
         const start = baseBankroll * mult;
         let best = null;
@@ -524,11 +522,18 @@
             let peak = b;
             let maxDrawdown = 0;
             const returns = [];
-            for (const bet of bets) {
-                const prev = b;
-                const stake = bet.isBoosted ? Math.min(10, b) : b * Math.min(bet.kellyPct, cap / 100);
-                b += bet.won ? stake * (bet.odds - 1) : -stake;
+            const stakes = {};
+            let prev = b;
+            for (const ev of events) {
+                if (ev.t === 0) {
+                    const stake = ev.isBoosted ? Math.min(10, b) : b * Math.min(ev.kellyPct, cap / 100);
+                    stakes[ev.i] = stake;
+                    b -= stake;
+                } else {
+                    if (ev.result === "oui") b += stakes[ev.i] * ev.odds;
+                }
                 returns.push((b - prev) / prev);
+                prev = b;
                 if (b > peak) peak = b;
                 const dd = peak > 0 ? (peak - b) / peak : 0;
                 if (dd > maxDrawdown) maxDrawdown = dd;
@@ -570,15 +575,8 @@
 
     function calcOptimalFlat(min, max, step, optMode, maxDD) {
         const mult = +bankrollInput.value / baseBankroll;
-        const bets = [];
-        for (const r of dataRows) {
-            const result = (r[10] || "").toLowerCase();
-            if (result !== "oui" && result !== "non") continue;
-            const odds = parseFloat((r[6] || "1").replace(',', '.'));
-            const isBoosted = isZeroStake(r[7]);
-            bets.push({ odds, won: result === "oui", isBoosted });
-        }
-        if (bets.length === 0) return null;
+        const events = buildEvents(dataRows).filter(ev => ev.result === "oui" || ev.result === "non");
+        if (events.length === 0) return null;
 
         const start = baseBankroll * mult;
         let best = null;
@@ -589,11 +587,18 @@
             let peak = b;
             let maxDrawdown = 0;
             const returns = [];
-            for (const bet of bets) {
-                const prev = b;
-                const stake = bet.isBoosted ? Math.min(10, b) : b * (pct / 100);
-                b += bet.won ? stake * (bet.odds - 1) : -stake;
+            const stakes = {};
+            let prev = b;
+            for (const ev of events) {
+                if (ev.t === 0) {
+                    const stake = ev.isBoosted ? Math.min(10, b) : b * (pct / 100);
+                    stakes[ev.i] = stake;
+                    b -= stake;
+                } else {
+                    if (ev.result === "oui") b += stakes[ev.i] * ev.odds;
+                }
                 returns.push((b - prev) / prev);
+                prev = b;
                 if (b > peak) peak = b;
                 const dd = peak > 0 ? (peak - b) / peak : 0;
                 if (dd > maxDrawdown) maxDrawdown = dd;
@@ -634,15 +639,18 @@
     }
 
     function simulateKelly(mult, rows) {
+        const events = buildEvents(rows);
         const path = [];
+        const stakes = {};
         let bk = baseBankroll * mult;
-        for (const r of rows) {
-            const result = (r[10] || "").toLowerCase();
-            if (result === "oui" || result === "non") {
-                const odds = parseFloat((r[6] || "1").replace(',', '.'));
-                const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-                const stake = isZeroStake(r[7]) ? Math.min(10, bk) : bk * kellyPct;
-                bk += result === "oui" ? stake * (odds - 1) : -stake;
+        for (const ev of events) {
+            if (ev.t === 0) {
+                if (ev.result !== "oui" && ev.result !== "non") { path.push(bk); continue; }
+                const stake = ev.isBoosted ? Math.min(10, bk) : bk * ev.kellyPct;
+                stakes[ev.i] = stake;
+                bk -= stake;
+            } else {
+                if (ev.result === "oui") bk += stakes[ev.i] * ev.odds;
             }
             path.push(bk);
         }
@@ -650,16 +658,18 @@
     }
 
     function simulateCapped(mult, rows, capPct) {
+        const events = buildEvents(rows);
         const path = [];
+        const stakes = {};
         let bk = baseBankroll * mult;
-        for (const r of rows) {
-            const result = (r[10] || "").toLowerCase();
-            if (result === "oui" || result === "non") {
-                const odds = parseFloat((r[6] || "1").replace(',', '.'));
-                const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-                const isBoosted = isZeroStake(r[7]);
-                const stake = isBoosted ? Math.min(10, bk) : bk * Math.min(kellyPct, capPct / 100);
-                bk += result === "oui" ? stake * (odds - 1) : -stake;
+        for (const ev of events) {
+            if (ev.t === 0) {
+                if (ev.result !== "oui" && ev.result !== "non") { path.push(bk); continue; }
+                const stake = ev.isBoosted ? Math.min(10, bk) : bk * Math.min(ev.kellyPct, capPct / 100);
+                stakes[ev.i] = stake;
+                bk -= stake;
+            } else {
+                if (ev.result === "oui") bk += stakes[ev.i] * ev.odds;
             }
             path.push(bk);
         }
@@ -667,15 +677,18 @@
     }
 
     function simulateFlat(mult, rows, flatPct) {
+        const events = buildEvents(rows);
         const path = [];
+        const stakes = {};
         let bk = baseBankroll * mult;
-        for (const r of rows) {
-            const result = (r[10] || "").toLowerCase();
-            if (result === "oui" || result === "non") {
-                const odds = parseFloat((r[6] || "1").replace(',', '.'));
-                const isBoosted = isZeroStake(r[7]);
-                const stake = isBoosted ? Math.min(10, bk) : bk * (flatPct / 100);
-                bk += result === "oui" ? stake * (odds - 1) : -stake;
+        for (const ev of events) {
+            if (ev.t === 0) {
+                if (ev.result !== "oui" && ev.result !== "non") { path.push(bk); continue; }
+                const stake = ev.isBoosted ? Math.min(10, bk) : bk * (flatPct / 100);
+                stakes[ev.i] = stake;
+                bk -= stake;
+            } else {
+                if (ev.result === "oui") bk += stakes[ev.i] * ev.odds;
             }
             path.push(bk);
         }
