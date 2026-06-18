@@ -816,6 +816,35 @@
     }
 
     function renderOptimTable(kellyMetrics, cappedResults, flatResults, hybridResults) {
+        const rows = [
+            { label: 'Kelly', pct: '—', metrics: kellyMetrics },
+            ...cappedResults.map(r => ({ label: `Kelly+Cap (${modeLabel(r.mode)})`, pct: r.cap.toFixed(2) + '%', metrics: r.metrics })),
+            ...flatResults.map(r => ({ label: `Mise fixe (${modeLabel(r.mode)})`, pct: r.pct.toFixed(2) + '%', metrics: r.metrics })),
+            ...hybridResults.map(r => ({ label: `Kelly+Cap+Mise (${modeLabel(r.mode)})`, pct: r.pct.toFixed(2) + '%', metrics: r.metrics }))
+        ];
+
+        let best = { annPct: -Infinity, monPct: -Infinity, profitFactor: -Infinity, expectedReturn: -Infinity, maxDrawdown: Infinity, calmar: -Infinity, sharpe: -Infinity, sortino: -Infinity };
+        for (const r of rows) {
+            const m = r.metrics;
+            if (!isNaN(m.annPct) && m.annPct > best.annPct) best.annPct = m.annPct;
+            if (!isNaN(m.monPct) && m.monPct > best.monPct) best.monPct = m.monPct;
+            if (isFinite(m.profitFactor) && m.profitFactor > best.profitFactor) best.profitFactor = m.profitFactor;
+            if (!isNaN(m.expectedReturn) && m.expectedReturn > best.expectedReturn) best.expectedReturn = m.expectedReturn;
+            if (!isNaN(m.maxDrawdown) && m.maxDrawdown < best.maxDrawdown) best.maxDrawdown = m.maxDrawdown;
+            if (!isNaN(m.calmar) && m.calmar > best.calmar) best.calmar = m.calmar;
+            if (!isNaN(m.sharpe) && m.sharpe > best.sharpe) best.sharpe = m.sharpe;
+            if (!isNaN(m.sortino) && m.sortino > best.sortino) best.sortino = m.sortino;
+        }
+
+        const cell = (val, col, fmt) => {
+            const v = fmt(val);
+            if (isFinite(val) && Math.abs(val - best[col]) < 1e-10) {
+                const color = col === 'maxDrawdown' ? '#ef4444' : '#22c55e';
+                return `<b style="color:${color}">${v}</b>`;
+            }
+            return v;
+        };
+
         let html = `<div style="overflow-x:auto;"><table class="opt-table">
             <thead><tr>
                 <th>Stratégie</th>
@@ -831,64 +860,20 @@
                 <th>Sortino</th>
             </tr></thead><tbody>`;
 
-        html += `<tr><td><b>Kelly</b></td>
-            <td>—</td>
-            <td style="color:${kellyMetrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(kellyMetrics.perf, kellyMetrics.perfPct)}</td>
-            <td>${formatPct(kellyMetrics.annPct)}</td>
-            <td>${formatPct(kellyMetrics.monPct)}</td>
-            <td>${isFinite(kellyMetrics.profitFactor) ? kellyMetrics.profitFactor.toFixed(3) : '∞'}</td>
-            <td>${formatPct(kellyMetrics.expectedReturn)}</td>
-            <td style="color:#ef4444">${formatPct(-kellyMetrics.maxDrawdown)}</td>
-            <td>${formatRatio(kellyMetrics.calmar)}</td>
-            <td>${formatRatio(kellyMetrics.sharpe)}</td>
-            <td>${formatRatio(kellyMetrics.sortino)}</td>
-        </tr>`;
-
-        for (const r of cappedResults) {
-            const label = `Kelly+Cap (${modeLabel(r.mode)})`;
-            html += `<tr><td>${label}</td>
-                <td>${r.cap.toFixed(2)}%</td>
-                <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
-                <td>${formatPct(r.metrics.annPct)}</td>
-                <td>${formatPct(r.metrics.monPct)}</td>
-                <td>${isFinite(r.metrics.profitFactor) ? r.metrics.profitFactor.toFixed(3) : '∞'}</td>
-                <td>${formatPct(r.metrics.expectedReturn)}</td>
-                <td style="color:#ef4444">${formatPct(-r.metrics.maxDrawdown)}</td>
-                <td>${formatRatio(r.metrics.calmar)}</td>
-                <td>${formatRatio(r.metrics.sharpe)}</td>
-                <td>${formatRatio(r.metrics.sortino)}</td>
-            </tr>`;
-        }
-
-        for (const r of flatResults) {
-            const label = `Mise fixe (${modeLabel(r.mode)})`;
-            html += `<tr><td>${label}</td>
-                <td>${r.pct.toFixed(2)}%</td>
-                <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
-                <td>${formatPct(r.metrics.annPct)}</td>
-                <td>${formatPct(r.metrics.monPct)}</td>
-                <td>${isFinite(r.metrics.profitFactor) ? r.metrics.profitFactor.toFixed(3) : '∞'}</td>
-                <td>${formatPct(r.metrics.expectedReturn)}</td>
-                <td style="color:#ef4444">${formatPct(-r.metrics.maxDrawdown)}</td>
-                <td>${formatRatio(r.metrics.calmar)}</td>
-                <td>${formatRatio(r.metrics.sharpe)}</td>
-                <td>${formatRatio(r.metrics.sortino)}</td>
-            </tr>`;
-        }
-
-        for (const r of hybridResults) {
-            const label = `Kelly+Cap+Mise (${modeLabel(r.mode)})`;
-            html += `<tr><td>${label}</td>
-                <td>${r.pct.toFixed(2)}%</td>
-                <td style="color:${r.metrics.perf >= 0 ? 'var(--accent)' : '#ef4444'}">${formatPerf(r.metrics.perf, r.metrics.perfPct)}</td>
-                <td>${formatPct(r.metrics.annPct)}</td>
-                <td>${formatPct(r.metrics.monPct)}</td>
-                <td>${isFinite(r.metrics.profitFactor) ? r.metrics.profitFactor.toFixed(3) : '∞'}</td>
-                <td>${formatPct(r.metrics.expectedReturn)}</td>
-                <td style="color:#ef4444">${formatPct(-r.metrics.maxDrawdown)}</td>
-                <td>${formatRatio(r.metrics.calmar)}</td>
-                <td>${formatRatio(r.metrics.sharpe)}</td>
-                <td>${formatRatio(r.metrics.sortino)}</td>
+        for (const r of rows) {
+            const m = r.metrics;
+            const perfColor = m.perf >= 0 ? 'var(--accent)' : '#ef4444';
+            html += `<tr><td><b>${r.label}</b></td>
+                <td>${r.pct}</td>
+                <td style="color:${perfColor}">${formatPerf(m.perf, m.perfPct)}</td>
+                <td>${cell(m.annPct, 'annPct', formatPct)}</td>
+                <td>${cell(m.monPct, 'monPct', formatPct)}</td>
+                <td>${cell(m.profitFactor, 'profitFactor', v => isFinite(v) ? v.toFixed(3) : '∞')}</td>
+                <td>${cell(m.expectedReturn, 'expectedReturn', formatPct)}</td>
+                <td style="color:#ef4444">${cell(m.maxDrawdown, 'maxDrawdown', v => formatPct(-v))}</td>
+                <td>${cell(m.calmar, 'calmar', formatRatio)}</td>
+                <td>${cell(m.sharpe, 'sharpe', formatRatio)}</td>
+                <td>${cell(m.sortino, 'sortino', formatRatio)}</td>
             </tr>`;
         }
 
