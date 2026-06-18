@@ -400,8 +400,8 @@
             let gains;
             if (boosted && gagne === "oui") {
                 gains = (10 * odds).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            } else if (boosted && gagne === "non") {
-                gains = "10,00";
+            } else if (boosted) {
+                gains = "-10,00";
             } else {
                 gains = r[12] ? (parseFloat(r[12].replace(',', '.')) * mult).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00";
             }
