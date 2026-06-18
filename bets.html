@@ -468,7 +468,8 @@
             if (result !== "oui" && result !== "non") continue;
             const odds = parseFloat((r[6] || "1").replace(',', '.'));
             const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-            bets.push({ kellyPct, odds, won: result === "oui" });
+            const isBoosted = r[7] === "0,00%" || r[7] === "0.00%";
+            bets.push({ kellyPct, odds, won: result === "oui", isBoosted });
         }
         if (bets.length === 0) return null;
 
@@ -483,8 +484,7 @@
             const returns = [];
             for (const bet of bets) {
                 const prev = b;
-                const cappedPct = Math.min(bet.kellyPct, cap / 100);
-                const stake = b * cappedPct;
+                const stake = bet.isBoosted ? Math.min(10, b) : b * Math.min(bet.kellyPct, cap / 100);
                 b += bet.won ? stake * (bet.odds - 1) : -stake;
                 returns.push((b - prev) / prev);
                 if (b > peak) peak = b;
@@ -533,7 +533,8 @@
             const result = (r[10] || "").toLowerCase();
             if (result !== "oui" && result !== "non") continue;
             const odds = parseFloat((r[6] || "1").replace(',', '.'));
-            bets.push({ odds, won: result === "oui" });
+            const isBoosted = r[7] === "0,00%" || r[7] === "0.00%";
+            bets.push({ odds, won: result === "oui", isBoosted });
         }
         if (bets.length === 0) return null;
 
@@ -548,7 +549,7 @@
             const returns = [];
             for (const bet of bets) {
                 const prev = b;
-                const stake = b * (pct / 100);
+                const stake = bet.isBoosted ? Math.min(10, b) : b * (pct / 100);
                 b += bet.won ? stake * (bet.odds - 1) : -stake;
                 returns.push((b - prev) / prev);
                 if (b > peak) peak = b;
@@ -598,7 +599,7 @@
             if (result === "oui" || result === "non") {
                 const odds = parseFloat((r[6] || "1").replace(',', '.'));
                 const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-                const stake = bk * kellyPct;
+                const stake = r[7] === "0,00%" || r[7] === "0.00%" ? Math.min(10, bk) : bk * kellyPct;
                 bk += result === "oui" ? stake * (odds - 1) : -stake;
             }
             path.push(bk);
@@ -614,8 +615,8 @@
             if (result === "oui" || result === "non") {
                 const odds = parseFloat((r[6] || "1").replace(',', '.'));
                 const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-                const cappedPct = Math.min(kellyPct, capPct / 100);
-                const stake = bk * cappedPct;
+                const isBoosted = r[7] === "0,00%" || r[7] === "0.00%";
+                const stake = isBoosted ? Math.min(10, bk) : bk * Math.min(kellyPct, capPct / 100);
                 bk += result === "oui" ? stake * (odds - 1) : -stake;
             }
             path.push(bk);
@@ -630,7 +631,8 @@
             const result = (r[10] || "").toLowerCase();
             if (result === "oui" || result === "non") {
                 const odds = parseFloat((r[6] || "1").replace(',', '.'));
-                const stake = bk * (flatPct / 100);
+                const isBoosted = r[7] === "0,00%" || r[7] === "0.00%";
+                const stake = isBoosted ? Math.min(10, bk) : bk * (flatPct / 100);
                 bk += result === "oui" ? stake * (odds - 1) : -stake;
             }
             path.push(bk);
