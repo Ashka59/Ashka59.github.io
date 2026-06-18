@@ -256,7 +256,7 @@
                     <th data-col="5">Result</th>
                     <th data-col="6">Odds</th>
                     <th data-col="9">Stake</th>
-                    <th data-col="8">Winnings</th>
+                    <th data-col="12">Gains</th>
                     <th data-col="11">Bankroll</th>
                     <th data-col="10">Won?</th>
                 </tr>
@@ -268,7 +268,7 @@
                     <th><input type="text" data-col="5" style="width:90%"></th>
                     <th><input type="text" data-col="6" style="width:90%"></th>
                     <th><input type="text" data-col="9" style="width:90%"></th>
-                    <th><input type="text" data-col="8" style="width:90%"></th>
+                    <th><input type="text" data-col="12" style="width:90%"></th>
                     <th><input type="text" data-col="11" style="width:90%"></th>
                     <th><input type="text" data-col="10" style="width:90%"></th>
                 </tr>
@@ -295,6 +295,32 @@
         if (!m) return null;
         return new Date(m[3], m[2]-1, m[1], m[4]||0, m[5]||0);
     };
+
+    const isZeroStake = s => {
+        const v = (s || "").replace(',', '.').replace('%', '').trim();
+        return v !== "" && parseFloat(v) === 0;
+    };
+
+    function computeDisplayBankrolls(rows, mult) {
+        let bk = baseBankroll * mult;
+        return rows.map(r => {
+            const result = (r[10] || "").toLowerCase();
+            const odds = parseFloat((r[6] || "1").replace(',', '.'));
+            const boosted = isZeroStake(r[7]);
+            let stake = 0;
+            if (result === "oui" || result === "non") {
+                if (boosted) stake = Math.min(10, bk);
+                else stake = bk * (parseFloat((r[7] || "0").replace(',', '.')) / 100);
+            } else if (boosted) {
+                stake = Math.min(10, bk);
+            }
+            const bkAvail = bk - stake;
+            if (result === "oui") bk = bkAvail + stake * odds;
+            else if (result === "non") bk = bkAvail;
+            else bk = bkAvail;
+            return bkAvail;
+        });
+    }
 
     fetch(sheetUrl)
         .then(r => r.text())
@@ -360,25 +386,26 @@
                 return 0;
             });
         }
+        const bankrolls = computeDisplayBankrolls(rows, mult);
         let winCount = 0, loseCount = 0, pendingCount = 0;
-        rows.forEach(r => {
+        rows.forEach((r, i) => {
             const eventDate = r[3];
             const gagne = (r[10] || "").toLowerCase();
             let gagneLabel = "pending", gagneColor = "#a259e6";
             if (gagne === "oui") { gagneLabel = "yes"; gagneColor = "#22c55e"; winCount++; }
             else if (gagne === "non") { gagneLabel = "no"; gagneColor = "#ef4444"; loseCount++; }
             else { pendingCount++; }
-            const isBoosted = r[7] === "0,00%" || r[7] === "0.00%";
+            const boosted = isZeroStake(r[7]);
             const odds = parseFloat((r[6] || "1").replace(',', '.'));
             let gains;
-            if (isBoosted) {
-                gains = gagne === "oui"
-                    ? (10 * odds).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                    : "10,00";
+            if (boosted && gagne === "oui") {
+                gains = (10 * odds).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else if (boosted && gagne === "non") {
+                gains = "10,00";
             } else {
-                gains = r[8] ? (parseFloat(r[8].replace(',', '.')) * mult).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00";
+                gains = r[12] ? (parseFloat(r[12].replace(',', '.')) * mult).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00";
             }
-            const bankroll = r[11] ? (parseFloat(r[11].replace(',', '.')) * mult).toFixed(2) : "0.00";
+            const bankroll = bankrolls[i].toFixed(2);
             tbody.insertAdjacentHTML("beforeend", `
         <tr>
             <td>${r[0]}</td>
@@ -387,7 +414,7 @@
             <td>${r[4]}</td>
             <td>${r[5]}</td>
             <td>${r[6]}</td>
-            <td>${isBoosted ? "10,00€" : r[7]}</td>
+            <td>${boosted ? "10,00€" : r[7]}</td>
             <td>${gains}€</td>
             <td>${bankroll}€</td>
             <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
@@ -468,7 +495,7 @@
             if (result !== "oui" && result !== "non") continue;
             const odds = parseFloat((r[6] || "1").replace(',', '.'));
             const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-            const isBoosted = r[7] === "0,00%" || r[7] === "0.00%";
+            const isBoosted = isZeroStake(r[7]);
             bets.push({ kellyPct, odds, won: result === "oui", isBoosted });
         }
         if (bets.length === 0) return null;
@@ -533,7 +560,7 @@
             const result = (r[10] || "").toLowerCase();
             if (result !== "oui" && result !== "non") continue;
             const odds = parseFloat((r[6] || "1").replace(',', '.'));
-            const isBoosted = r[7] === "0,00%" || r[7] === "0.00%";
+            const isBoosted = isZeroStake(r[7]);
             bets.push({ odds, won: result === "oui", isBoosted });
         }
         if (bets.length === 0) return null;
@@ -599,7 +626,7 @@
             if (result === "oui" || result === "non") {
                 const odds = parseFloat((r[6] || "1").replace(',', '.'));
                 const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-                const stake = r[7] === "0,00%" || r[7] === "0.00%" ? Math.min(10, bk) : bk * kellyPct;
+                const stake = isZeroStake(r[7]) ? Math.min(10, bk) : bk * kellyPct;
                 bk += result === "oui" ? stake * (odds - 1) : -stake;
             }
             path.push(bk);
@@ -615,7 +642,7 @@
             if (result === "oui" || result === "non") {
                 const odds = parseFloat((r[6] || "1").replace(',', '.'));
                 const kellyPct = parseFloat((r[7] || "0").replace(',', '.')) / 100;
-                const isBoosted = r[7] === "0,00%" || r[7] === "0.00%";
+                const isBoosted = isZeroStake(r[7]);
                 const stake = isBoosted ? Math.min(10, bk) : bk * Math.min(kellyPct, capPct / 100);
                 bk += result === "oui" ? stake * (odds - 1) : -stake;
             }
@@ -631,7 +658,7 @@
             const result = (r[10] || "").toLowerCase();
             if (result === "oui" || result === "non") {
                 const odds = parseFloat((r[6] || "1").replace(',', '.'));
-                const isBoosted = r[7] === "0,00%" || r[7] === "0.00%";
+                const isBoosted = isZeroStake(r[7]);
                 const stake = isBoosted ? Math.min(10, bk) : bk * (flatPct / 100);
                 bk += result === "oui" ? stake * (odds - 1) : -stake;
             }
