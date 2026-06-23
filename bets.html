@@ -395,21 +395,6 @@
         renderMonthlyBarChart(mult);
     }
 
-    function computeRowGain(r, mult) {
-        const gagne = (r[10] || "").toLowerCase();
-        const boosted = isZeroStake(r[7]);
-        const odds = parseFloat((r[6] || "1").replace(',', '.'));
-        let gain;
-        if (boosted && gagne === "oui") {
-            gain = 10 * odds;
-        } else if (boosted) {
-            gain = -10;
-        } else {
-            gain = r[12] ? parseFloat(r[12].replace(',', '.')) * mult : 0;
-        }
-        return gain;
-    }
-
     function renderTable(mult) {
         const tbody = betsTable.querySelector("tbody");
         tbody.innerHTML = "";
@@ -526,15 +511,29 @@
             if (val)
                 rows = rows.filter(r => (r[col]||"").toLowerCase().includes(val));
         });
+        const events = buildEvents(rows);
         const monthMap = {};
-        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        for (const r of rows) {
-            const d = parseDate(r[3]);
-            if (!d) continue;
-            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-            monthMap[key] = (monthMap[key] || 0) + computeRowGain(r, mult);
+        const stakes = {};
+        let bk = baseBankroll * mult;
+        for (const ev of events) {
+            const key = `${ev.d.getFullYear()}-${String(ev.d.getMonth()+1).padStart(2,'0')}`;
+            if (ev.t === 1) {
+                let pnl;
+                if (ev.result === "oui") {
+                    pnl = stakes[ev.i] * (ev.odds - 1);
+                    bk += stakes[ev.i] * ev.odds;
+                } else {
+                    pnl = -stakes[ev.i];
+                }
+                monthMap[key] = (monthMap[key] || 0) + pnl;
+            } else {
+                const stake = ev.isBoosted ? Math.min(10, bk) : bk * ev.kellyPct;
+                stakes[ev.i] = stake;
+                bk -= stake;
+            }
         }
         const keys = Object.keys(monthMap).sort();
+        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         const labels = keys.map(k => {
             const [y, m] = k.split('-');
             return `${monthNames[parseInt(m)-1]} ${y}`;
