@@ -244,6 +244,13 @@
     </div>
 
     <div class="card">
+        <h2 style="margin-top:0;font-size:1.1rem;">Monthly P&amp;L</h2>
+        <div class="chart-wrapper">
+            <canvas id="monthlyBarChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
         <h2 style="margin-top:0;font-size:1.1rem;">History</h2>
         <div class="table-wrapper">
             <table id="betsTable">
@@ -283,7 +290,7 @@
 <script>
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/1n30c7z0w0pjch9r6svRKohpPGMm1ePx9_KxhNgBkdCQ/export?format=csv&gid=786289597';
     const baseBankroll = 100;
-    let chart, dataRows = [], pieChart, sportPieChart;
+    let chart, dataRows = [], pieChart, sportPieChart, monthlyBarChart;
     let sortCol = null, sortDir = 1;
     let filters = {};
 
@@ -385,6 +392,22 @@
         const mult = bankrollInput.value / baseBankroll;
         renderTable(mult);
         renderSportPieChart();
+        renderMonthlyBarChart(mult);
+    }
+
+    function computeRowGain(r, mult) {
+        const gagne = (r[10] || "").toLowerCase();
+        const boosted = isZeroStake(r[7]);
+        const odds = parseFloat((r[6] || "1").replace(',', '.'));
+        let gain;
+        if (boosted && gagne === "oui") {
+            gain = 10 * odds;
+        } else if (boosted) {
+            gain = -10;
+        } else {
+            gain = r[12] ? parseFloat(r[12].replace(',', '.')) * mult : 0;
+        }
+        return gain;
     }
 
     function renderTable(mult) {
@@ -495,6 +518,65 @@
             html += `<span style="color:${colors[i % colors.length]};font-weight:600;">${sport}</span> : ${pct}% (${data[i]})<br>`;
         });
         sportPieStats.innerHTML = html;
+    }
+
+    function renderMonthlyBarChart(mult) {
+        let rows = dataRows.slice();
+        Object.entries(filters).forEach(([col, val]) => {
+            if (val)
+                rows = rows.filter(r => (r[col]||"").toLowerCase().includes(val));
+        });
+        const monthMap = {};
+        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        for (const r of rows) {
+            const d = parseDate(r[3]);
+            if (!d) continue;
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            monthMap[key] = (monthMap[key] || 0) + computeRowGain(r, mult);
+        }
+        const keys = Object.keys(monthMap).sort();
+        const labels = keys.map(k => {
+            const [y, m] = k.split('-');
+            return `${monthNames[parseInt(m)-1]} ${y}`;
+        });
+        const data = keys.map(k => monthMap[k]);
+        const bgColors = data.map(v => v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : '#6b7280');
+        const s = getComputedStyle(document.documentElement);
+        if (!monthlyBarChart) {
+            monthlyBarChart = new Chart(document.getElementById('monthlyBarChart'), {
+                type: 'bar',
+                data: { labels, datasets: [{
+                    data,
+                    backgroundColor: bgColors,
+                    borderWidth: 0,
+                    borderRadius: 4,
+                }] },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: s.getPropertyValue('--muted'), maxRotation: 45 },
+                            grid: { display: false },
+                        },
+                        y: {
+                            grid: { color: s.getPropertyValue('--grid') },
+                            ticks: {
+                                color: s.getPropertyValue('--muted'),
+                                callback: v => v.toFixed(0) + '€',
+                            },
+                        },
+                    },
+                },
+            });
+        } else {
+            monthlyBarChart.data.labels = labels;
+            monthlyBarChart.data.datasets[0].data = data;
+            monthlyBarChart.data.datasets[0].backgroundColor = bgColors;
+            monthlyBarChart.update();
+        }
     }
 
     /* ========= THEME ========= */
