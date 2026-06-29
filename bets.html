@@ -297,6 +297,8 @@
     const MODES = ['return', 'calmar'];
     const COLORS = ['#22c55e', '#eab308', '#06b6d4', '#ef4444', '#a855f7', '#f97316', '#3b82f6'];
 
+    const MIN_STAKE = 0.10;
+
     const parseDate = s => {
         const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
         if (!m) return null;
@@ -339,7 +341,7 @@
         let bk = baseBankroll * mult;
         for (const ev of events) {
             if (ev.t === 0) {
-                const stake = ev.isBoosted ? Math.min(10, bk) : bk * ev.kellyPct;
+                const stake = ev.isBoosted ? Math.min(10, bk) : Math.min(bk, Math.max(MIN_STAKE, bk * ev.kellyPct));
                 stakes[ev.i] = stake;
                 bk -= stake;
             } else {
@@ -347,7 +349,7 @@
             }
             out[ev.i] = bk;
         }
-        return out;
+        return { bankrolls: out, stakes };
     }
 
     fetch(sheetUrl)
@@ -415,7 +417,7 @@
                 return 0;
             });
         }
-        const bankrolls = computeDisplayBankrolls(dataRows, mult);
+        const { bankrolls, stakes } = computeDisplayBankrolls(dataRows, mult);
         let winCount = 0, loseCount = 0, pendingCount = 0;
         rows.forEach((r, i) => {
             const eventDate = r[3];
@@ -443,7 +445,7 @@
             <td>${r[4]}</td>
             <td>${r[5]}</td>
             <td>${r[6]}</td>
-            <td>${boosted ? "10,00€" : r[7]}</td>
+            <td>${boosted ? "10,00€" : stakes[dataRows.indexOf(r)].toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€"}</td>
             <td>${gains}€</td>
             <td>${bankroll}€</td>
             <td><span style="color:${gagneColor};font-weight:600;">${gagneLabel}</span></td>
@@ -527,7 +529,7 @@
                 }
                 monthMap[key] = (monthMap[key] || 0) + pnl;
             } else {
-                const stake = ev.isBoosted ? Math.min(10, bk) : bk * ev.kellyPct;
+                const stake = ev.isBoosted ? Math.min(10, bk) : Math.min(bk, Math.max(MIN_STAKE, bk * ev.kellyPct));
                 stakes[ev.i] = stake;
                 bk -= stake;
             }
@@ -607,7 +609,7 @@
             let prev = b;
             for (const ev of events) {
                 if (ev.t === 0) {
-                    const stake = ev.isBoosted ? Math.min(10, b) : b * Math.min(ev.kellyPct, cap / 100);
+                    const stake = ev.isBoosted ? Math.min(10, b) : Math.min(b, Math.max(MIN_STAKE, b * Math.min(ev.kellyPct, cap / 100)));
                     stakes[ev.i] = stake;
                     b -= stake;
                 } else {
@@ -672,7 +674,7 @@
             let prev = b;
             for (const ev of events) {
                 if (ev.t === 0) {
-                    const stake = ev.isBoosted ? Math.min(10, b) : b * (pct / 100);
+                    const stake = ev.isBoosted ? Math.min(10, b) : Math.min(b, Math.max(MIN_STAKE, b * (pct / 100)));
                     stakes[ev.i] = stake;
                     b -= stake;
                 } else {
@@ -726,7 +728,7 @@
         let bk = baseBankroll * mult;
         for (const ev of events) {
             if (ev.t === 0) {
-                const stake = ev.isBoosted ? Math.min(10, bk) : bk * ev.kellyPct;
+                const stake = ev.isBoosted ? Math.min(10, bk) : Math.min(bk, Math.max(MIN_STAKE, bk * ev.kellyPct));
                 stakes[ev.i] = stake;
                 bk -= stake;
             } else {
@@ -744,7 +746,7 @@
         let bk = baseBankroll * mult;
         for (const ev of events) {
             if (ev.t === 0) {
-                const stake = ev.isBoosted ? Math.min(10, bk) : bk * Math.min(ev.kellyPct, capPct / 100);
+                const stake = ev.isBoosted ? Math.min(10, bk) : Math.min(bk, Math.max(MIN_STAKE, bk * Math.min(ev.kellyPct, capPct / 100)));
                 stakes[ev.i] = stake;
                 bk -= stake;
             } else {
@@ -762,7 +764,7 @@
         let bk = baseBankroll * mult;
         for (const ev of events) {
             if (ev.t === 0) {
-                const stake = ev.isBoosted ? Math.min(10, bk) : bk * (flatPct / 100);
+                const stake = ev.isBoosted ? Math.min(10, bk) : Math.min(bk, Math.max(MIN_STAKE, bk * (flatPct / 100)));
                 stakes[ev.i] = stake;
                 bk -= stake;
             } else {
