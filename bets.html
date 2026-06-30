@@ -433,8 +433,14 @@
                 gains = (10 * odds).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             } else if (boosted) {
                 gains = "-10,00";
+            } else if (gagne === "oui") {
+                const s = stakes[dataRows.indexOf(r)];
+                gains = (s * (odds - 1)).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else if (gagne === "non") {
+                const s = stakes[dataRows.indexOf(r)];
+                gains = (-s).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             } else {
-                gains = r[12] ? (parseFloat(r[12].replace(',', '.')) * mult).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00";
+                gains = "0,00";
             }
             const bankroll = bankrolls[dataRows.indexOf(r)].toFixed(2);
             tbody.insertAdjacentHTML("beforeend", `
